@@ -1,0 +1,31 @@
+services:
+  # Backend
+  backend:
+    build: ./backend
+    container_name: todo-backend
+    restart: unless-stopped
+    volumes:
+      # Монтируем папку data для SQLite
+      - ./data:/app/data
+    environment:
+      # Путь к SQLite внутри контейнера (в папке data)
+      - DATABASE_URL=sqlite:///./data/todo.db
+    networks:
+      - todo-network
+    # Не пробрасываем порт наружу — доступ только через Nginx
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: todo-frontend
+    restart: unless-stopped
+    ports:
+      - "8084:80"   # Порт 8084 на хосте → 80 в контейнере
+    networks:
+      - todo-network
+    depends_on:
+      - backend
+
+networks:
+  todo-network:
+    driver: bridge
