@@ -67,9 +67,9 @@
             <header class="main-header">
                 <button class="today-btn" id="today-btn">Сегодня</button>
                 <div class="date-navigator">
-                    <button class="nav-btn" id="prev-week">←</button>
+                    <button class="nav-btn" id="prev-period">←</button>
                     <h2 id="current-period"></h2>
-                    <button class="nav-btn" id="next-week">→</button>
+                    <button class="nav-btn" id="next-period">→</button>
                 </div>
                 <div class="view-switcher">
                     <button class="view-btn active" data-view="week">Неделя</button>
@@ -77,22 +77,24 @@
                 </div>
             </header>
 
-            <!-- Календарь -->
-            <div class="calendar-container">
-                <!-- Заголовки дней недели -->
+            <!-- Вид "Неделя" — календарь -->
+            <div class="calendar-container" id="calendar-container">
                 <div class="week-header" id="week-header">
-                    <!-- Пустая ячейка для колонки времени -->
                     <div class="time-column-header"></div>
-                    <!-- Дни недели будут добавлены через JS -->
                 </div>
-
-                <!-- Сетка с задачами -->
                 <div class="week-grid" id="week-grid">
-                    <!-- Колонка времени -->
                     <div class="time-column" id="time-column"></div>
-                    <!-- Контейнер для колонок дней -->
                     <div class="days-container" id="days-container"></div>
                 </div>
+            </div>
+
+            <!-- Вид "День" — список задач -->
+            <div class="day-list-container" id="day-list-container" style="display: none;">
+                <div class="day-list-header">
+                    <h2 id="day-list-title"></h2>
+                    <div class="day-stats" id="day-stats"></div>
+                </div>
+                <div class="day-list" id="day-list"></div>
             </div>
         </main>
 
@@ -122,7 +124,7 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Дата (ММ.ДД.ГГГГ)</label>
+                            <label>Дата</label>
                             <input type="date" id="task-date-input">
                         </div>
                         <div class="form-group">

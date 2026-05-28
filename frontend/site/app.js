@@ -41,6 +41,65 @@ const PRIORITY_ICONS = {
 };
 
 // ============================================
+// Защита от XSS и валидация на фронте
+// ============================================
+
+/**
+ * Очистка строки от HTML-тегов и опасных символов
+ */
+function sanitizeInput(str) {
+    if (!str) return '';
+
+    // Удаляем HTML-теги
+    str = str.replace(/<[^>]*>/g, '');
+
+    // Удаляем потенциально опасные конструкции
+    str = str.replace(/javascript:/gi, '');
+    str = str.replace(/on\w+\s*=/gi, '');
+    str = str.replace(/&#/g, '');
+    str = str.replace(/\\x/g, '');
+
+    // Удаляем управляющие символы
+    str = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    return str.trim();
+}
+
+/**
+ * Валидация заголовка задачи
+ */
+function validateTitle(title) {
+    if (!title || title.trim().length === 0) {
+        return { valid: false, error: 'Введите название задачи' };
+    }
+
+    if (title.length > 200) {
+        return { valid: false, error: 'Название не должно превышать 200 символов' };
+    }
+
+    // Проверка на подозрительные паттерны
+    const suspicious = /(\b(select|insert|update|delete|drop|union|alter|create|exec|execute|script|javascript)\b)/i;
+    if (suspicious.test(title)) {
+        return { valid: false, error: 'Название содержит недопустимые символы' };
+    }
+
+    return { valid: true };
+}
+
+/**
+ * Валидация описания задачи
+ */
+function validateDescription(desc) {
+    if (!desc) return { valid: true };
+
+    if (desc.length > 2000) {
+        return { valid: false, error: 'Описание не должно превышать 2000 символов' };
+    }
+
+    return { valid: true };
+}
+
+// ============================================
 // Утилиты
 // ============================================
 function formatDate(date) {
@@ -247,23 +306,33 @@ function createMiniDay(date, isOtherMonth) {
 // ============================================
 function renderCalendar() {
     updateHeader();
-    renderWeekView();
+
+    const calendarContainer = document.getElementById('calendar-container');
+    const dayListContainer = document.getElementById('day-list-container');
+
+    if (state.currentView === 'day') {
+        // Показываем список задач, скрываем календарь
+        calendarContainer.style.display = 'none';
+        dayListContainer.style.display = 'block';
+        renderDayListView();
+    } else {
+        // Показываем календарь, скрываем список
+        calendarContainer.style.display = 'flex';
+        dayListContainer.style.display = 'none';
+        renderWeekView();
+    }
 }
 
 function updateHeader() {
-    const dates = getWeekDates(getMonday(state.currentDate));
-
     if (state.currentView === 'week') {
+        const dates = getWeekDates(getMonday(state.currentDate));
         const startStr = dates[0].toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
         const endStr = dates[6].toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
         document.getElementById('current-period').textContent = `${startStr} – ${endStr}`;
     } else {
         document.getElementById('current-period').textContent =
             state.selectedDate.toLocaleDateString('ru-RU', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
             });
     }
 }
@@ -363,6 +432,164 @@ function renderWeekView() {
 
         daysContainer.appendChild(dayColumn);
     });
+}
+
+function renderDayListView() {
+    const dateStr = formatDate(state.selectedDate);
+    const dayTasks = state.tasks[dateStr] || [];
+
+    // Заголовок
+    document.getElementById('day-list-title').textContent =
+        `Задачи на ${state.selectedDate.toLocaleDateString('ru-RU', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        })}`;
+
+    // Статистика
+    const total = dayTasks.length;
+    const completed = dayTasks.filter(t => t.completed).length;
+    const urgent = dayTasks.filter(t => t.priority === 'urgent' && !t.completed).length;
+
+    document.getElementById('day-stats').innerHTML = `
+        <div class="stat">
+            Всего: <span class="stat-value">${total}</span>
+        </div>
+        <div class="stat">
+            Выполнено: <span class="stat-value">${completed}</span>
+        </div>
+        ${urgent > 0 ? `
+        <div class="stat" style="color: #D32F2F;">
+            🔴 Срочных: <span class="stat-value">${urgent}</span>
+        </div>` : ''}
+        ${total > 0 ? `
+        <div class="stat">
+            Осталось: <span class="stat-value">${total - completed}</span>
+        </div>` : ''}
+    `;
+
+    // Список задач
+    const dayList = document.getElementById('day-list');
+    dayList.innerHTML = '';
+
+    if (dayTasks.length === 0) {
+        dayList.innerHTML = `
+            <div class="day-list-empty">
+                <div class="empty-icon">📝</div>
+                <h3>Нет задач на этот день</h3>
+                <p>Нажмите кнопку ниже чтобы добавить задачу</p>
+                <button class="btn-primary" onclick="document.getElementById('add-task-btn').click()">
+                    + Создать задачу
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    // Сортируем: сначала по времени, потом по приоритету
+    const sortedTasks = [...dayTasks].sort((a, b) => {
+        // Задачи без времени в конце
+        if (!a.due_time && b.due_time) return 1;
+        if (a.due_time && !b.due_time) return -1;
+
+        // Сортировка по времени
+        if (a.due_time && b.due_time) {
+            const timeCompare = a.due_time.localeCompare(b.due_time);
+            if (timeCompare !== 0) return timeCompare;
+        }
+
+        // Сортировка по приоритету
+        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+
+    sortedTasks.forEach(task => {
+        dayList.appendChild(createTaskCard(task));
+    });
+}
+
+function createTaskCard(task) {
+    const card = document.createElement('div');
+    card.className = 'task-card';
+    if (task.completed) card.classList.add('completed');
+
+    const bgColor = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
+
+    card.innerHTML = `
+        <!-- Чекбокс -->
+        <input type="checkbox"
+               class="task-card-checkbox"
+               ${task.completed ? 'checked' : ''}
+               title="Отметить как выполненное">
+
+        <!-- Индикатор приоритета -->
+        <div class="task-card-priority ${task.priority}"></div>
+
+        <!-- Контент -->
+        <div class="task-card-content">
+            <div class="task-card-title">${escapeHtml(task.title)}</div>
+            ${task.description ? `
+                <div class="task-card-description">${escapeHtml(task.description)}</div>
+            ` : ''}
+            <div class="task-card-meta">
+                ${task.due_time ? `
+                    <span class="task-card-time">🕐 ${task.due_time}</span>
+                ` : `
+                    <span class="task-card-time">📅 Весь день</span>
+                `}
+                <span class="task-card-priority-badge ${task.priority}">
+                    ${PRIORITY_ICONS[task.priority]} ${PRIORITY_NAMES[task.priority]}
+                </span>
+                ${task.completed ? '<span style="color: #34a853; font-size: 12px;">✅ Выполнено</span>' : ''}
+            </div>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="task-card-actions">
+            <button class="task-card-btn edit" title="Редактировать">✎</button>
+            <button class="task-card-btn delete" title="Удалить">✕</button>
+        </div>
+    `;
+
+    // Обработчик чекбокса
+    const checkbox = card.querySelector('.task-card-checkbox');
+    checkbox.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try {
+            await updateTask(task.id, { completed: checkbox.checked });
+            await refreshTasks();
+        } catch (error) {
+            checkbox.checked = !checkbox.checked;
+            alert('Ошибка обновления');
+        }
+    });
+
+    // Клик по карточке — редактирование
+    card.addEventListener('click', (e) => {
+        // Не открываем если кликнули по кнопкам или чекбоксу
+        if (e.target.closest('.task-card-btn') || e.target.closest('.task-card-checkbox')) {
+            return;
+        }
+        openTaskModal(task);
+    });
+
+    // Кнопка редактирования
+    card.querySelector('.task-card-btn.edit').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openTaskModal(task);
+    });
+
+    // Кнопка удаления
+    card.querySelector('.task-card-btn.delete').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm('Удалить задачу?')) return;
+        try {
+            await deleteTask(task.id);
+            await refreshTasks();
+        } catch (error) {
+            alert('Ошибка удаления');
+        }
+    });
+
+    return card;
 }
 
 function createTaskElement(task) {
@@ -507,36 +734,54 @@ function closeModal() {
 async function handleFormSubmit(e) {
     e.preventDefault();
 
+    // Получаем и очищаем данные
+    const rawTitle = document.getElementById('task-title-input').value;
+    const rawDesc = document.getElementById('task-desc-input').value;
+
+    // Валидация заголовка
+    const titleValidation = validateTitle(rawTitle);
+    if (!titleValidation.valid) {
+        alert(titleValidation.error);
+        return;
+    }
+
+    // Валидация описания
+    const descValidation = validateDescription(rawDesc);
+    if (!descValidation.valid) {
+        alert(descValidation.error);
+        return;
+    }
+
+    // Очищаем данные
+    const cleanTitle = sanitizeInput(rawTitle);
+    const cleanDesc = rawDesc ? sanitizeInput(rawDesc) : null;
+
     const taskData = {
-        title: document.getElementById('task-title-input').value.trim(),
-        description: document.getElementById('task-desc-input').value.trim() || null,
+        title: cleanTitle,
+        description: cleanDesc || null,
         due_date: document.getElementById('task-date-input').value || null,
         due_time: document.getElementById('task-time-select').value || null,
         priority: document.getElementById('task-priority').value,
         color: document.getElementById('task-color').value,
     };
 
+    // Проверяем что после очистки заголовок не стал пустым
     if (!taskData.title) {
-        alert('Введите название задачи');
+        alert('Название задачи не может быть пустым после очистки');
         return;
     }
 
     try {
         const taskId = document.getElementById('task-id').value;
-
         if (taskId) {
             await updateTask(taskId, taskData);
-            console.log('✅ Задача обновлена');
         } else {
             await createTask(taskData);
-            console.log('✅ Задача создана');
         }
-
         closeModal();
         await refreshTasks();
     } catch (error) {
         alert('Ошибка сохранения: ' + error.message);
-        console.error('Ошибка:', error);
     }
 }
 
@@ -592,21 +837,41 @@ function initEventListeners() {
     });
 
     // Навигация по неделям
-    document.getElementById('prev-week').addEventListener('click', () => {
-        const monday = getMonday(state.currentDate);
-        monday.setDate(monday.getDate() - 7);
-        state.currentDate = new Date(monday);
-        state.selectedDate = new Date(monday);
-        state.miniCalendarDate = new Date(monday);
+    document.getElementById('prev-period').addEventListener('click', () => {
+        if (state.currentView === 'day') {
+            // Переход на предыдущий день
+            const newDate = new Date(state.selectedDate);
+            newDate.setDate(newDate.getDate() - 1);
+            state.selectedDate = newDate;
+            state.currentDate = newDate;
+            state.miniCalendarDate = newDate;
+        } else {
+            // Переход на предыдущую неделю
+            const monday = getMonday(state.currentDate);
+            monday.setDate(monday.getDate() - 7);
+            state.currentDate = new Date(monday);
+            state.selectedDate = new Date(monday);
+            state.miniCalendarDate = new Date(monday);
+        }
         refreshTasks();
     });
 
-    document.getElementById('next-week').addEventListener('click', () => {
-        const monday = getMonday(state.currentDate);
-        monday.setDate(monday.getDate() + 7);
-        state.currentDate = new Date(monday);
-        state.selectedDate = new Date(monday);
-        state.miniCalendarDate = new Date(monday);
+    document.getElementById('next-period').addEventListener('click', () => {
+        if (state.currentView === 'day') {
+            // Переход на следующий день
+            const newDate = new Date(state.selectedDate);
+            newDate.setDate(newDate.getDate() + 1);
+            state.selectedDate = newDate;
+            state.currentDate = newDate;
+            state.miniCalendarDate = newDate;
+        } else {
+            // Переход на следующую неделю
+            const monday = getMonday(state.currentDate);
+            monday.setDate(monday.getDate() + 7);
+            state.currentDate = new Date(monday);
+            state.selectedDate = new Date(monday);
+            state.miniCalendarDate = new Date(monday);
+        }
         refreshTasks();
     });
 

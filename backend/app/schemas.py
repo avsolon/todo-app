@@ -2,16 +2,43 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional
 from datetime import date, time, datetime
 import re
+import html
 
 
 class TaskCreate(BaseModel):
-    """Схема для создания задачи."""
+    """Схема для создания задачи с защитой от инъекций."""
     title: str = Field(..., min_length=1, max_length=200)
-    description: Optional[str] = None
-    due_date: Optional[date] = None  # YYYY-MM-DD (храним стандартно)
-    due_time: Optional[str] = None  # HH:MM (валидируем 15-минутные слоты)
-    priority: Optional[str] = "normal"  # low, normal, high, urgent
-    color: Optional[str] = None  # Если не указан — авто по приоритету
+    description: Optional[str] = Field(None, max_length=2000)
+    due_date: Optional[date] = None
+    due_time: Optional[str] = None
+    priority: Optional[str] = "normal"
+    color: Optional[str] = None
+
+    @validator('title')
+    def sanitize_title(cls, v):
+        """Очистка заголовка от опасных символов."""
+        # Удаляем HTML-теги
+        v = re.sub(r'<[^>]*>', '', v)
+        # Удаляем потенциально опасные SQL-символы (доп. защита)
+        v = v.replace("'", "''")
+        # Удаляем управляющие символы
+        v = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', v)
+        # Обрезаем множественные пробелы
+        v = re.sub(r'\s+', ' ', v).strip()
+        return v
+
+    @validator('description')
+    def sanitize_description(cls, v):
+        """Очистка описания от опасных символов."""
+        if v is None:
+            return v
+        # Экранируем HTML
+        v = html.escape(v, quote=False)
+        # Удаляем управляющие символы (кроме переноса строки)
+        v = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', v)
+        # Оставляем только безопасные переносы строк
+        v = v.replace('\r\n', '\n').replace('\r', '\n')
+        return v.strip()
 
     @validator('due_time')
     def validate_time_slot(cls, v):
@@ -19,7 +46,6 @@ class TaskCreate(BaseModel):
         if v is None:
             return v
 
-        # Проверяем формат HH:MM
         if not re.match(r'^\d{2}:\d{2}$', v):
             raise ValueError('Время должно быть в формате HH:MM')
 
@@ -41,36 +67,50 @@ class TaskCreate(BaseModel):
             raise ValueError(f'Приоритет должен быть одним из: {", ".join(allowed)}')
         return v
 
-    @validator('color', always=True)
-    def set_default_color(cls, v, values):
-        """Автоматически устанавливаем цвет по приоритету, если не указан."""
-        if v is not None:
+    @validator('color')
+    def validate_color(cls, v):
+        """Проверяем формат цвета."""
+        if v is None:
             return v
-
-        priority_colors = {
-            'low': '#FFF9C4',  # Светло-жёлтый
-            'normal': '#BBDEFB',  # Голубой
-            'high': '#E1BEE7',  # Сиреневый
-            'urgent': '#FFCDD2',  # Красный (светло-красный)
-        }
-
-        priority = values.get('priority', 'normal')
-        return priority_colors.get(priority, '#BBDEFB')
+        if not re.match(r'^#[0-9a-fA-F]{6}$', v):
+            raise ValueError('Цвет должен быть в формате HEX (#RRGGBB)')
+        return v
 
 
 class TaskUpdate(BaseModel):
-    """Схема для обновления задачи (все поля опциональны)."""
-    title: Optional[str] = None
-    description: Optional[str] = None
+    """Схема для обновления задачи с защитой."""
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
     completed: Optional[bool] = None
     due_date: Optional[date] = None
     due_time: Optional[str] = None
     priority: Optional[str] = None
     color: Optional[str] = None
 
+    @validator('title')
+    def sanitize_title(cls, v):
+        """Очистка заголовка."""
+        if v is None:
+            return v
+        v = re.sub(r'<[^>]*>', '', v)
+        v = v.replace("'", "''")
+        v = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', v)
+        v = re.sub(r'\s+', ' ', v).strip()
+        return v
+
+    @validator('description')
+    def sanitize_description(cls, v):
+        """Очистка описания."""
+        if v is None:
+            return v
+        v = html.escape(v, quote=False)
+        v = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', v)
+        v = v.replace('\r\n', '\n').replace('\r', '\n')
+        return v.strip()
+
     @validator('due_time')
     def validate_time_slot(cls, v):
-        """Проверяем что время кратно 15 минутам."""
+        """Проверяем время."""
         if v is None:
             return v
 
@@ -89,12 +129,21 @@ class TaskUpdate(BaseModel):
 
     @validator('priority')
     def validate_priority(cls, v):
-        """Проверяем допустимые значения приоритета."""
+        """Проверяем приоритет."""
         if v is None:
             return v
         allowed = ['low', 'normal', 'high', 'urgent']
         if v not in allowed:
             raise ValueError(f'Приоритет должен быть одним из: {", ".join(allowed)}')
+        return v
+
+    @validator('color')
+    def validate_color(cls, v):
+        """Проверяем цвет."""
+        if v is None:
+            return v
+        if not re.match(r'^#[0-9a-fA-F]{6}$', v):
+            raise ValueError('Цвет должен быть в формате HEX (#RRGGBB)')
         return v
 
 
@@ -113,4 +162,4 @@ class TaskResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True  # Pydantic v2
+        from_attributes = True

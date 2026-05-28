@@ -673,6 +673,255 @@ body {
     border-color: var(--danger);
 }
 
+/* ===== Вид "День" — список задач ===== */
+.day-list-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    background: var(--bg);
+}
+
+.day-list-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+}
+
+.day-list-header h2 {
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.day-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.day-stats .stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.day-stats .stat-value {
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* Карточка задачи в списке */
+.task-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    margin-bottom: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.task-card:hover {
+    box-shadow: var(--shadow);
+    border-color: var(--primary);
+}
+
+.task-card.completed {
+    opacity: 0.6;
+}
+
+.task-card.completed .task-card-title {
+    text-decoration: line-through;
+}
+
+/* Чекбокс */
+.task-card-checkbox {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* Индикатор приоритета */
+.task-card-priority {
+    width: 4px;
+    min-height: 50px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    align-self: stretch;
+}
+
+.task-card-priority.low { background: #FFF9C4; }
+.task-card-priority.normal { background: #4285f4; }
+.task-card-priority.high { background: #9C27B0; }
+.task-card-priority.urgent { background: #D32F2F; }
+
+/* Контент */
+.task-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-card-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.task-card-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.task-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.task-card-time {
+    font-size: 13px;
+    color: var(--primary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.task-card-priority-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.task-card-priority-badge.low {
+    background: #FFF9C4;
+    color: #F57F17;
+}
+
+.task-card-priority-badge.normal {
+    background: #BBDEFB;
+    color: #1565C0;
+}
+
+.task-card-priority-badge.high {
+    background: #E1BEE7;
+    color: #6A1B9A;
+}
+
+.task-card-priority-badge.urgent {
+    background: #FFCDD2;
+    color: #C62828;
+}
+
+/* Кнопки действий */
+.task-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.task-card-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--text-secondary);
+}
+
+.task-card-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text);
+}
+
+.task-card-btn.delete:hover {
+    background: rgba(234, 67, 53, 0.1);
+    color: var(--danger);
+}
+
+/* Пустой список */
+.day-list-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.day-list-empty .empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.day-list-empty h3 {
+    font-size: 18px;
+    font-weight: 400;
+    margin-bottom: 8px;
+}
+
+.day-list-empty p {
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+/* ===== Адаптивность ===== */
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+
+    .main-header {
+        flex-wrap: wrap;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    :root {
+        --time-column-width: 40px;
+        --slot-height: 12px;
+    }
+
+    .day-header .day-number {
+        font-size: 20px;
+    }
+
+    .task-card {
+        flex-direction: column;
+    }
+
+    .task-card-priority {
+        width: 100%;
+        min-height: 4px;
+        height: 4px;
+    }
+
+    .task-card-actions {
+        align-self: flex-end;
+    }
+}
+
 /* ===== Адаптивность ===== */
 @media (max-width: 768px) {
     .sidebar {
@@ -696,3 +945,4 @@ body {
         font-size: 20px;
     }
 }
+
