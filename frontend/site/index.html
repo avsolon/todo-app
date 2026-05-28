@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Календарь дел</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Боковая панель -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>📅 Календарь дел</h1>
+            </div>
+
+            <!-- Мини-календарь для выбора даты -->
+            <div class="mini-calendar">
+                <div class="mini-calendar-header">
+                    <button class="nav-btn" id="prev-month">←</button>
+                    <span id="mini-month-year"></span>
+                    <button class="nav-btn" id="next-month">→</button>
+                </div>
+                <div class="mini-calendar-grid" id="mini-calendar-days">
+                    <div class="day-name">Пн</div>
+                    <div class="day-name">Вт</div>
+                    <div class="day-name">Ср</div>
+                    <div class="day-name">Чт</div>
+                    <div class="day-name">Пт</div>
+                    <div class="day-name">Сб</div>
+                    <div class="day-name">Вс</div>
+                </div>
+            </div>
+
+            <!-- Быстрое добавление задачи -->
+            <div class="quick-add">
+                <button class="add-task-btn" id="add-task-btn">
+                    + Создать задачу
+                </button>
+            </div>
+        </aside>
+
+        <!-- Основная область -->
+        <main class="main-content">
+            <!-- Шапка с текущей датой -->
+            <header class="main-header">
+                <button class="today-btn" id="today-btn">Сегодня</button>
+                <div class="date-navigator">
+                    <button class="nav-btn" id="prev-week">←</button>
+                    <h2 id="current-period"></h2>
+                    <button class="nav-btn" id="next-week">→</button>
+                </div>
+                <div class="view-switcher">
+                    <button class="view-btn active" data-view="week">Неделя</button>
+                    <button class="view-btn" data-view="day">День</button>
+                </div>
+            </header>
+
+            <!-- Календарь -->
+            <div class="calendar-container">
+                <!-- Заголовки дней недели -->
+                <div class="week-header" id="week-header"></div>
+
+                <!-- Сетка времени и задач -->
+                <div class="week-grid" id="week-grid">
+                    <!-- Временные метки -->
+                    <div class="time-column" id="time-column"></div>
+                    <!-- Колонки дней -->
+                    <div class="days-container" id="days-container"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Модальное окно задачи -->
+        <div class="modal" id="task-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Новая задача</h3>
+                    <button class="close-btn" id="close-modal">×</button>
+                </div>
+                <form id="task-form">
+                    <input type="hidden" id="task-id">
+                    <input type="hidden" id="task-date">
+
+                    <div class="form-group">
+                        <input type="text" id="task-title-input"
+                               placeholder="Название задачи" required>
+                    </div>
+
+                    <div class="form-group">
+                        <textarea id="task-desc-input"
+                                  placeholder="Описание" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Дата</label>
+                            <input type="date" id="task-date-input">
+                        </div>
+                        <div class="form-group">
+                            <label>Время</label>
+                            <input type="time" id="task-time-input">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Приоритет</label>
+                            <select id="task-priority">
+                                <option value="low">Низкий</option>
+                                <option value="normal" selected>Обычный</option>
+                                <option value="high">Высокий</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Цвет</label>
+                            <input type="color" id="task-color" value="#4285f4">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" id="delete-task-btn">
+                            🗑 Удалить
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            Сохранить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,31 +1,54 @@
 from fastapi import FastAPI
-from .database import engine, Base
+from fastapi.middleware.cors import CORSMiddleware
+
+from .database import init_db
 from .routers import tasks
-from .models import User
-from sqlalchemy.orm import Session
-from .database import SessionLocal
-from .config import DEFAULT_USER_ID
 
-app = FastAPI(title="Todo App API")
+# Создаём приложение с отключенным редиректом слешей
+app = FastAPI(
+    title="Todo Calendar API",
+    description="Планировщик дел с календарём",
+    version="1.0.0",
+    redirect_slashes=False  # Отключаем редирект со / на без /
+)
 
-# Создаём таблицы при старте (для простоты; в production использовать Alembic)
-Base.metadata.create_all(bind=engine)
+# Разрешаем запросы с фронтенда (для разработки)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Создаём дефолтного пользователя, если его ещё нет
-def init_default_user():
-    db: Session = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == DEFAULT_USER_ID).first()
-        if not user:
-            db.add(User(id=DEFAULT_USER_ID, username="default"))
-            db.commit()
-    finally:
-        db.close()
-
-init_default_user()
-
+# Подключаем роутеры
 app.include_router(tasks.router)
 
+
+@app.get("/")
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Проверка работоспособности и корневой эндпоинт."""
+    return {
+        "status": "ok",
+        "database": "sqlite",
+        "version": "1.0.0",
+        "endpoints": {
+            "docs": "/docs",
+            "api": "/api/tasks",
+            "calendar": "/api/tasks/calendar"
+        }
+    }
+
+
+# Инициализируем БД при старте (после всех роутеров)
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    print("✅ Приложение готово к работе!")
+
+
+# Точка входа для запуска через `python main.py`
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)
