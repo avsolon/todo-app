@@ -21,12 +21,12 @@ class Task(Base):
     description = Column(String, nullable=True)
     completed = Column(Boolean, default=False)
 
-    # Новые поля для календаря
-    due_date = Column(Date, nullable=True, index=True)  # Дата выполнения (ДД.ММ.ГГГГ)
-    due_time = Column(Time, nullable=True)  # Время выполнения (ЧЧ:ММ)
+    # Дата и время выполнения
+    due_date = Column(Date, nullable=True, index=True)  # Храним как Date (YYYY-MM-DD)
+    due_time = Column(String, nullable=True)  # Храним как String "HH:MM" для простоты
 
-    priority = Column(String, default="normal")  # Приоритет: low, normal, high
-    color = Column(String, default="#4285f4")  # Цвет для отображения в календаре
+    priority = Column(String, default="normal")  # low, normal, high, urgent
+    color = Column(String, default="#BBDEFB")  # Цвет в HEX
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

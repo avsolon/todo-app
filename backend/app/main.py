@@ -9,7 +9,7 @@ app = FastAPI(
     title="Todo Calendar API",
     description="Планировщик дел с календарём",
     version="1.0.0",
-    redirect_slashes=False  # Отключаем редирект со / на без /
+    redirect_slashes=False,
 )
 
 # Разрешаем запросы с фронтенда (для разработки)
@@ -41,14 +41,8 @@ def health():
     }
 
 
-# Инициализируем БД при старте (после всех роутеров)
+# Инициализируем БД при старте
 @app.on_event("startup")
 async def startup_event():
     init_db()
     print("✅ Приложение готово к работе!")
-
-
-# Точка входа для запуска через `python main.py`
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,4 +1,4 @@
-/* ===== Сброс и базовые стили ===== */
+/* ===== Сброс и переменные ===== */
 * {
     margin: 0;
     padding: 0;
@@ -19,6 +19,16 @@
     --shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
     --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
     --radius: 8px;
+
+    /* Размеры сетки */
+    --time-column-width: 60px;
+    --slot-height: 15px; /* 15 минут = 15px */
+
+    /* Цвета приоритетов */
+    --priority-low: #FFF9C4;
+    --priority-normal: #BBDEFB;
+    --priority-high: #E1BEE7;
+    --priority-urgent: #FFCDD2;
 }
 
 body {
@@ -44,12 +54,45 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
 }
 
 .logo h1 {
     font-size: 22px;
     font-weight: 500;
     color: var(--primary);
+}
+
+/* Легенда приоритетов */
+.priority-legend {
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+}
+
+.priority-legend h3 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
 }
 
 /* Мини-календарь */
@@ -90,6 +133,7 @@ body {
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s;
+    position: relative;
 }
 
 .mini-day:hover {
@@ -99,6 +143,7 @@ body {
 .mini-day.today {
     background: var(--primary);
     color: white;
+    font-weight: 600;
 }
 
 .mini-day.selected {
@@ -114,6 +159,10 @@ body {
     height: 4px;
     background: var(--primary);
     border-radius: 50%;
+}
+
+.mini-day.today.has-tasks::after {
+    background: white;
 }
 
 .mini-day.other-month {
@@ -155,7 +204,6 @@ body {
     overflow: hidden;
 }
 
-/* Шапка */
 .main-header {
     display: flex;
     align-items: center;
@@ -163,6 +211,7 @@ body {
     background: var(--bg);
     border-bottom: 1px solid var(--border);
     gap: 16px;
+    flex-shrink: 0;
 }
 
 .today-btn {
@@ -234,21 +283,33 @@ body {
 /* ===== Календарь ===== */
 .calendar-container {
     flex: 1;
-    overflow-y: auto;
+    overflow: auto;
     background: var(--bg);
+    display: flex;
+    flex-direction: column;
 }
 
+/* ===== Заголовки дней недели ===== */
 .week-header {
-    display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
+    display: flex;
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     background: var(--bg);
     z-index: 10;
+    flex-shrink: 0;
+}
+
+.time-column-header {
+    width: var(--time-column-width);
+    min-width: var(--time-column-width);
+    border-right: 1px solid var(--border);
+    background: var(--bg);
 }
 
 .day-header {
+    flex: 1;
+    min-width: 0;
     padding: 12px 8px;
     text-align: center;
     border-left: 1px solid var(--border);
@@ -258,12 +319,14 @@ body {
     font-size: 11px;
     color: var(--text-secondary);
     text-transform: uppercase;
+    font-weight: 500;
 }
 
 .day-header .day-number {
     font-size: 26px;
     font-weight: 400;
     margin-top: 4px;
+    line-height: 1;
 }
 
 .day-header.today .day-number {
@@ -278,67 +341,111 @@ body {
     margin: 4px auto 0;
 }
 
-/* Сетка */
+/* ===== Сетка времени и задач ===== */
 .week-grid {
-    display: grid;
-    grid-template-columns: 60px repeat(7, 1fr);
-    min-height: 600px;
+    display: flex;
+    flex: 1;
+    position: relative;
+    min-height: 1440px; /* 24 часа × 60 минут */
+    overflow-y: auto;
 }
 
+/* Колонка времени */
 .time-column {
+    width: var(--time-column-width);
+    min-width: var(--time-column-width);
     border-right: 1px solid var(--border);
+    background: var(--bg);
+    flex-shrink: 0;
 }
 
 .time-slot {
-    height: 60px;
-    padding: 0 8px;
-    font-size: 11px;
+    height: var(--slot-height);
+    padding: 0 4px 0 0;
+    font-size: 10px;
     color: var(--text-secondary);
     text-align: right;
-    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    padding-top: 2px;
+    padding-top: 0;
+    position: relative;
 }
 
+.time-slot.full-hour {
+    border-top: 1px solid var(--border);
+    font-weight: 500;
+    color: var(--text);
+}
+
+/* Контейнер для колонок дней */
 .days-container {
-    display: contents;
+    display: flex;
+    flex: 1;
+    position: relative;
 }
 
+/* Колонка одного дня */
 .day-column {
+    flex: 1;
+    min-width: 0;
     border-left: 1px solid var(--border);
     position: relative;
 }
 
 .day-column.today {
-    background: rgba(66, 133, 244, 0.04);
+    background: rgba(66, 133, 244, 0.03);
 }
 
+/* Ячейка временного слота (15 минут) */
 .hour-cell {
-    height: 60px;
-    border-bottom: 1px solid var(--border);
+    height: var(--slot-height);
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
 }
 
-/* Задачи в календаре */
+.hour-cell:hover {
+    background: rgba(66, 133, 244, 0.08);
+}
+
+/* Разделители для целых часов и получасов */
+.hour-cell.full-hour {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.hour-cell.half-hour {
+    border-top: 1px dashed rgba(0, 0, 0, 0.04);
+}
+
+/* ===== Задачи в календаре ===== */
 .task-event {
     position: absolute;
-    left: 4px;
-    right: 4px;
-    padding: 4px 8px;
+    left: 2px;
+    right: 2px;
+    padding: 3px 6px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     overflow: hidden;
     transition: all 0.2s;
     z-index: 5;
-    border-left: 3px solid;
+    border-left: 3px solid rgba(0,0,0,0.2);
+    min-height: 18px;
+    line-height: 1.3;
 }
 
 .task-event:hover {
     box-shadow: var(--shadow-lg);
     z-index: 10;
-    transform: scale(1.02);
+    transform: scale(1.03);
+}
+
+.task-event .event-time {
+    font-size: 10px;
+    opacity: 0.7;
+    margin-bottom: 1px;
+    font-weight: 500;
 }
 
 .task-event .event-title {
@@ -348,18 +455,25 @@ body {
     text-overflow: ellipsis;
 }
 
-.task-event .event-time {
-    font-size: 11px;
+.task-event .event-priority {
+    font-size: 10px;
     opacity: 0.8;
 }
 
 .task-event.completed .event-title {
     text-decoration: line-through;
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
-.task-event.priority-high {
-    border-left-width: 4px;
+/* Индикатор приоритета */
+.task-event.priority-urgent {
+    border-left-color: #D32F2F;
+    animation: urgentPulse 2s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(234, 67, 53, 0); }
 }
 
 /* ===== Модальное окно ===== */
@@ -386,6 +500,18 @@ body {
     width: 90%;
     max-width: 500px;
     box-shadow: var(--shadow-lg);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .modal-header {
@@ -394,6 +520,11 @@ body {
     align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    font-size: 18px;
+    font-weight: 500;
 }
 
 .close-btn {
@@ -413,6 +544,7 @@ body {
     background: var(--bg-secondary);
 }
 
+/* Форма */
 #task-form {
     padding: 20px;
     display: flex;
@@ -430,6 +562,8 @@ body {
     font-size: 12px;
     color: var(--text-secondary);
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .form-row {
@@ -447,6 +581,7 @@ body {
     font-size: 14px;
     font-family: inherit;
     transition: border-color 0.2s;
+    background: var(--bg);
 }
 
 #task-form input:focus,
@@ -454,17 +589,41 @@ body {
 #task-form select:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
 }
 
 #task-title-input {
-    font-size: 18px;
+    font-size: 18px !important;
     font-weight: 500;
+    border: none !important;
+    border-bottom: 2px solid var(--border) !important;
+    border-radius: 0 !important;
+    padding: 8px 0 !important;
 }
 
+#task-title-input:focus {
+    border-bottom-color: var(--primary) !important;
+    box-shadow: none !important;
+}
+
+#task-color {
+    width: 100%;
+    height: 40px;
+    padding: 4px;
+    cursor: pointer;
+}
+
+/* Кнопки формы */
 .form-actions {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     margin-top: 8px;
+}
+
+.form-actions-right {
+    display: flex;
+    gap: 8px;
 }
 
 .btn-primary {
@@ -476,6 +635,7 @@ body {
     font-size: 14px;
     cursor: pointer;
     transition: background 0.2s;
+    font-weight: 500;
 }
 
 .btn-primary:hover {
@@ -497,13 +657,20 @@ body {
     background: var(--bg-secondary);
 }
 
-#delete-task-btn {
+.btn-danger {
+    padding: 10px 24px;
+    background: transparent;
     color: var(--danger);
-    border-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-#delete-task-btn:hover {
+.btn-danger:hover {
     background: rgba(234, 67, 53, 0.1);
+    border-color: var(--danger);
 }
 
 /* ===== Адаптивность ===== */
@@ -519,20 +686,13 @@ body {
     .form-row {
         grid-template-columns: 1fr;
     }
-}
 
-/* ===== Анимации ===== */
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
+    :root {
+        --time-column-width: 40px;
+        --slot-height: 12px;
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
-.modal.active .modal-content {
-    animation: slideIn 0.3s ease;
+    .day-header .day-number {
+        font-size: 20px;
+    }
 }

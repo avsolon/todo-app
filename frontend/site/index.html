@@ -14,7 +14,7 @@
                 <h1>📅 Календарь дел</h1>
             </div>
 
-            <!-- Мини-календарь для выбора даты -->
+            <!-- Мини-календарь -->
             <div class="mini-calendar">
                 <div class="mini-calendar-header">
                     <button class="nav-btn" id="prev-month">←</button>
@@ -32,7 +32,28 @@
                 </div>
             </div>
 
-            <!-- Быстрое добавление задачи -->
+            <!-- Легенда приоритетов -->
+            <div class="priority-legend">
+                <h3>Приоритеты</h3>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #FFF9C4;"></span>
+                    <span>Низкий</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #BBDEFB;"></span>
+                    <span>Обычный</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #E1BEE7;"></span>
+                    <span>Высокий</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: #FFCDD2;"></span>
+                    <span>Супер важно!</span>
+                </div>
+            </div>
+
+            <!-- Кнопка добавления -->
             <div class="quick-add">
                 <button class="add-task-btn" id="add-task-btn">
                     + Создать задачу
@@ -42,7 +63,7 @@
 
         <!-- Основная область -->
         <main class="main-content">
-            <!-- Шапка с текущей датой -->
+            <!-- Шапка -->
             <header class="main-header">
                 <button class="today-btn" id="today-btn">Сегодня</button>
                 <div class="date-navigator">
@@ -59,13 +80,17 @@
             <!-- Календарь -->
             <div class="calendar-container">
                 <!-- Заголовки дней недели -->
-                <div class="week-header" id="week-header"></div>
+                <div class="week-header" id="week-header">
+                    <!-- Пустая ячейка для колонки времени -->
+                    <div class="time-column-header"></div>
+                    <!-- Дни недели будут добавлены через JS -->
+                </div>
 
-                <!-- Сетка времени и задач -->
+                <!-- Сетка с задачами -->
                 <div class="week-grid" id="week-grid">
-                    <!-- Временные метки -->
+                    <!-- Колонка времени -->
                     <div class="time-column" id="time-column"></div>
-                    <!-- Колонки дней -->
+                    <!-- Контейнер для колонок дней -->
                     <div class="days-container" id="days-container"></div>
                 </div>
             </div>
@@ -80,26 +105,31 @@
                 </div>
                 <form id="task-form">
                     <input type="hidden" id="task-id">
-                    <input type="hidden" id="task-date">
 
                     <div class="form-group">
-                        <input type="text" id="task-title-input"
-                               placeholder="Название задачи" required>
+                        <input type="text"
+                               id="task-title-input"
+                               placeholder="Название задачи"
+                               required
+                               autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <textarea id="task-desc-input"
-                                  placeholder="Описание" rows="3"></textarea>
+                                  placeholder="Описание"
+                                  rows="3"></textarea>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Дата</label>
+                            <label>Дата (ММ.ДД.ГГГГ)</label>
                             <input type="date" id="task-date-input">
                         </div>
                         <div class="form-group">
                             <label>Время</label>
-                            <input type="time" id="task-time-input">
+                            <select id="task-time-select">
+                                <option value="">Весь день</option>
+                            </select>
                         </div>
                     </div>
 
@@ -107,24 +137,30 @@
                         <div class="form-group">
                             <label>Приоритет</label>
                             <select id="task-priority">
-                                <option value="low">Низкий</option>
-                                <option value="normal" selected>Обычный</option>
-                                <option value="high">Высокий</option>
+                                <option value="low">🟡 Низкий</option>
+                                <option value="normal" selected>🔵 Обычный</option>
+                                <option value="high">🟣 Высокий</option>
+                                <option value="urgent">🔴 Супер важно!</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Цвет</label>
-                            <input type="color" id="task-color" value="#4285f4">
+                            <input type="color" id="task-color" value="#BBDEFB">
                         </div>
                     </div>
 
                     <div class="form-actions">
-                        <button type="button" class="btn-secondary" id="delete-task-btn">
+                        <button type="button" class="btn-danger" id="delete-task-btn">
                             🗑 Удалить
                         </button>
-                        <button type="submit" class="btn-primary">
-                            Сохранить
-                        </button>
+                        <div class="form-actions-right">
+                            <button type="button" class="btn-secondary" id="cancel-btn">
+                                Отмена
+                            </button>
+                            <button type="submit" class="btn-primary">
+                                Сохранить
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

@@ -3,6 +3,14 @@ from sqlalchemy import and_
 from datetime import date, datetime, timedelta
 from . import models, schemas
 
+# Словарь цветов по приоритетам (используется если цвет не указан явно)
+PRIORITY_COLORS = {
+    'low': '#FFF9C4',  # Светло-жёлтый
+    'normal': '#BBDEFB',  # Голубой
+    'high': '#E1BEE7',  # Сиреневый
+    'urgent': '#FFCDD2',  # Красный (светло-красный)
+}
+
 
 def get_tasks(
         db: Session,
@@ -15,9 +23,6 @@ def get_tasks(
 ):
     """
     Получить список задач с возможностью фильтрации по датам.
-
-    - due_date: задачи на конкретную дату
-    - start_date, end_date: задачи в диапазоне дат
     """
     query = db.query(models.Task).filter(models.Task.user_id == user_id)
 
@@ -31,9 +36,12 @@ def get_tasks(
             )
         )
 
+    # Сортировка: сначала по времени (nulls first — задачи без времени сверху),
+    # затем по приоритету (urgent > high > normal > low)
     return query.order_by(
-        models.Task.due_time.asc().nullsfirst(),  # Сначала без времени
-        models.Task.priority.desc(),  # Высокий приоритет выше
+        models.Task.due_time.asc().nullsfirst(),
+        # Кастомная сортировка приоритетов через CASE
+        models.Task.priority.desc(),
         models.Task.created_at.desc()
     ).offset(skip).limit(limit).all()
 
@@ -73,7 +81,16 @@ def get_tasks_grouped_by_date(
 
 def create_task(db: Session, task: schemas.TaskCreate, user_id: int):
     """Создать новую задачу."""
-    db_task = models.Task(**task.model_dump(), user_id=user_id)
+    task_data = task.model_dump()
+
+    # Если цвет не указан — берём из приоритета
+    if not task_data.get('color'):
+        task_data['color'] = PRIORITY_COLORS.get(
+            task_data.get('priority', 'normal'),
+            '#BBDEFB'
+        )
+
+    db_task = models.Task(**task_data, user_id=user_id)
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
@@ -91,6 +108,14 @@ def update_task(db: Session, task_id: int, user_id: int, task_update: schemas.Ta
         return None
 
     update_data = task_update.model_dump(exclude_unset=True)
+
+    # Если обновляется приоритет, но не указан цвет — обновляем цвет автоматически
+    if 'priority' in update_data and 'color' not in update_data:
+        update_data['color'] = PRIORITY_COLORS.get(
+            update_data['priority'],
+            '#BBDEFB'
+        )
+
     for field, value in update_data.items():
         setattr(db_task, field, value)
 

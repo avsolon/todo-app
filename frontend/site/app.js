@@ -2,7 +2,6 @@
 // Todo Calendar - JavaScript приложение
 // ============================================
 
-// API base URL — убедитесь что порт совпадает
 const API_BASE = 'http://127.0.0.1:8000';
 
 // ============================================
@@ -18,28 +17,67 @@ const state = {
 };
 
 // ============================================
+// Константы
+// ============================================
+const PRIORITY_COLORS = {
+    'low': '#FFF9C4',
+    'normal': '#BBDEFB',
+    'high': '#E1BEE7',
+    'urgent': '#FFCDD2',
+};
+
+const PRIORITY_NAMES = {
+    'low': 'Низкий',
+    'normal': 'Обычный',
+    'high': 'Высокий',
+    'urgent': 'Супер важно!',
+};
+
+const PRIORITY_ICONS = {
+    'low': '🟡',
+    'normal': '🔵',
+    'high': '🟣',
+    'urgent': '🔴',
+};
+
+// ============================================
 // Утилиты
 // ============================================
 function formatDate(date) {
-    return date.toISOString().split('T')[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateDisplay(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${day}.${month}.${year}`;
+}
+
+function formatTime(timeStr) {
+    if (!timeStr) return '';
+    return timeStr;
 }
 
 function getMonday(date) {
     const d = new Date(date);
     const day = d.getDay();
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
 }
 
 function getWeekDates(date) {
     const monday = getMonday(date);
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
+    return Array.from({length: 7}, (_, i) => {
         const d = new Date(monday);
         d.setDate(d.getDate() + i);
-        dates.push(d);
-    }
-    return dates;
+        return d;
+    });
 }
 
 function isToday(date) {
@@ -55,22 +93,50 @@ function isSameDate(d1, d2) {
         d1.getFullYear() === d2.getFullYear();
 }
 
+function generateTimeSlots() {
+    const slots = [];
+    for (let hour = 0; hour < 24; hour++) {
+        for (let minute of [0, 15, 30, 45]) {
+            const h = String(hour).padStart(2, '0');
+            const m = String(minute).padStart(2, '0');
+            slots.push(`${h}:${m}`);
+        }
+    }
+    return slots;
+}
+
+function timeToMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // ============================================
 // API вызовы
 // ============================================
 async function apiCall(url, options = {}) {
     try {
         const response = await fetch(url, {
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            },
+            headers: { 'Content-Type': 'application/json', ...options.headers },
             ...options
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(`HTTP ${response.status}: ${error}`);
+            const errorData = await response.json().catch(() => ({}));
+            const detail = errorData.detail || `HTTP ${response.status}`;
+
+            if (Array.isArray(detail)) {
+                const messages = detail.map(e => e.msg).join('\n');
+                throw new Error(messages);
+            }
+
+            throw new Error(detail);
         }
 
         if (response.status === 204) return null;
@@ -114,7 +180,7 @@ async function deleteTask(taskId) {
 }
 
 // ============================================
-// Мини-календарь в сайдбаре
+// Мини-календарь
 // ============================================
 function renderMiniCalendar() {
     const date = state.miniCalendarDate;
@@ -125,39 +191,30 @@ function renderMiniCalendar() {
         date.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
 
     const grid = document.getElementById('mini-calendar-days');
+    grid.querySelectorAll('.mini-day').forEach(d => d.remove());
 
-    // Удаляем старые дни
-    const oldDays = grid.querySelectorAll('.mini-day');
-    oldDays.forEach(d => d.remove());
-
-    // Первый день месяца
     const firstDay = new Date(year, month, 1);
     let startDay = firstDay.getDay();
-    startDay = startDay === 0 ? 6 : startDay - 1; // Пн = 0
+    startDay = startDay === 0 ? 6 : startDay - 1;
 
-    // Последний день месяца
     const lastDay = new Date(year, month + 1, 0);
 
-    // Дни из предыдущего месяца
+    // Предыдущий месяц
     const prevLastDay = new Date(year, month, 0);
     for (let i = startDay - 1; i >= 0; i--) {
-        const day = prevLastDay.getDate() - i;
-        const cell = createMiniDay(new Date(year, month - 1, day), true);
-        grid.appendChild(cell);
+        grid.appendChild(createMiniDay(new Date(year, month - 1, prevLastDay.getDate() - i), true));
     }
 
-    // Дни текущего месяца
+    // Текущий месяц
     for (let day = 1; day <= lastDay.getDate(); day++) {
-        const cell = createMiniDay(new Date(year, month, day), false);
-        grid.appendChild(cell);
+        grid.appendChild(createMiniDay(new Date(year, month, day), false));
     }
 
-    // Дни следующего месяца
+    // Следующий месяц
     const totalCells = startDay + lastDay.getDate();
     const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
     for (let day = 1; day <= remainingCells; day++) {
-        const cell = createMiniDay(new Date(year, month + 1, day), true);
-        grid.appendChild(cell);
+        grid.appendChild(createMiniDay(new Date(year, month + 1, day), true));
     }
 }
 
@@ -170,9 +227,8 @@ function createMiniDay(date, isOtherMonth) {
     if (isToday(date)) div.classList.add('today');
     if (isSameDate(date, state.selectedDate)) div.classList.add('selected');
 
-    // Проверяем есть ли задачи в этот день
     const dateStr = formatDate(date);
-    if (state.tasks[dateStr] && state.tasks[dateStr].length > 0) {
+    if (state.tasks[dateStr]?.length > 0) {
         div.classList.add('has-tasks');
     }
 
@@ -191,12 +247,7 @@ function createMiniDay(date, isOtherMonth) {
 // ============================================
 function renderCalendar() {
     updateHeader();
-
-    if (state.currentView === 'day') {
-        renderDayView();
-    } else {
-        renderWeekView();
-    }
+    renderWeekView();
 }
 
 function updateHeader() {
@@ -209,7 +260,10 @@ function updateHeader() {
     } else {
         document.getElementById('current-period').textContent =
             state.selectedDate.toLocaleDateString('ru-RU', {
-                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
             });
     }
 }
@@ -220,44 +274,83 @@ function renderWeekView() {
     const daysContainer = document.getElementById('days-container');
     const timeColumn = document.getElementById('time-column');
 
-    // Заголовки дней
-    weekHeader.innerHTML = '<div class="time-column-header"></div>';
+    // ===== Очищаем всё =====
+    // Удаляем все day-header (кроме time-column-header)
+    weekHeader.querySelectorAll('.day-header').forEach(el => el.remove());
+
+    // Очищаем контейнеры
     daysContainer.innerHTML = '';
     timeColumn.innerHTML = '';
 
-    // Временные метки (7:00 - 22:00)
-    for (let hour = 7; hour <= 22; hour++) {
-        const timeSlot = document.createElement('div');
-        timeSlot.className = 'time-slot';
-        timeSlot.textContent = `${hour}:00`;
-        timeColumn.appendChild(timeSlot);
-    }
+    // ===== 1. Строим колонку времени =====
+    const timeSlots = generateTimeSlots();
 
-    dates.forEach((date, index) => {
-        // Заголовок дня
+    timeSlots.forEach((slot) => {
+        const [h, m] = slot.split(':');
+        const timeSlotDiv = document.createElement('div');
+        timeSlotDiv.className = 'time-slot';
+        timeSlotDiv.style.height = '15px'; // 15 минут = 15px
+
+        // Показываем метку только для целых часов
+        if (m === '00') {
+            timeSlotDiv.textContent = `${h}:00`;
+            timeSlotDiv.classList.add('full-hour');
+        }
+
+        timeColumn.appendChild(timeSlotDiv);
+    });
+
+    // ===== 2. Строим заголовки дней недели =====
+    dates.forEach((date) => {
         const dayHeader = document.createElement('div');
-        dayHeader.className = `day-header${isToday(date) ? ' today' : ''}`;
+        dayHeader.className = 'day-header';
+
+        if (isToday(date)) {
+            dayHeader.classList.add('today');
+        }
+
         dayHeader.innerHTML = `
             <div class="day-name">${date.toLocaleDateString('ru-RU', { weekday: 'short' })}</div>
             <div class="day-number">${date.getDate()}</div>
         `;
+
+        // Добавляем в week-header (после time-column-header)
         weekHeader.appendChild(dayHeader);
+    });
 
-        // Колонка дня
+    // ===== 3. Строим колонки дней с задачами =====
+    dates.forEach((date) => {
         const dayColumn = document.createElement('div');
-        dayColumn.className = `day-column${isToday(date) ? ' today' : ''}`;
-        dayColumn.style.gridColumn = index + 2;
-        dayColumn.style.gridRow = 1;
+        dayColumn.className = 'day-column';
 
-        // Ячейки часов
-        for (let hour = 7; hour <= 22; hour++) {
+        if (isToday(date)) {
+            dayColumn.classList.add('today');
+        }
+
+        // Добавляем ячейки для каждого временного слота
+        timeSlots.forEach((slot) => {
+            const [h, m] = slot.split(':');
             const hourCell = document.createElement('div');
             hourCell.className = 'hour-cell';
+            hourCell.style.height = '15px'; // 15 минут = 15px
+
+            // Разделители для целых часов
+            if (m === '00' && h !== '00') {
+                hourCell.classList.add('full-hour');
+            }
+            // Пунктирные разделители для получасов
+            if (m === '30') {
+                hourCell.classList.add('half-hour');
+            }
+
+            // Клик для создания задачи в этом слоте
             hourCell.addEventListener('click', () => {
-                openTaskModal(null, date, `${hour}:00`);
+                const clickedDate = new Date(date);
+                openTaskModal(null, clickedDate, slot);
             });
+
             dayColumn.appendChild(hourCell);
-        }
+        });
 
         // Добавляем задачи для этого дня
         const dateStr = formatDate(date);
@@ -272,36 +365,47 @@ function renderWeekView() {
     });
 }
 
-function renderDayView() {
-    // Упрощенная версия — только один день
-    state.currentDate = new Date(state.selectedDate);
-    renderWeekView(); // Пока используем недельный вид
-}
-
 function createTaskElement(task) {
     const el = document.createElement('div');
-    el.className = `task-event priority-${task.priority}`;
-    if (task.completed) el.classList.add('completed');
+    el.className = 'task-event';
 
-    el.style.backgroundColor = task.color + '20';
-    el.style.borderLeftColor = task.color;
+    if (task.completed) el.classList.add('completed');
+    if (task.priority) el.classList.add(`priority-${task.priority}`);
 
     // Позиционирование по времени
     if (task.due_time) {
-        const [hours, minutes] = task.due_time.split(':');
-        const topPosition = (parseInt(hours) - 7) * 60 + parseInt(minutes);
-        el.style.top = `${topPosition}px`;
-        el.style.height = 'auto';
-        el.style.minHeight = '24px';
+        const minutes = timeToMinutes(task.due_time);
+        const topPx = minutes * 1; // 1 минута = 1px (15 минут = 15px)
+        el.style.top = `${topPx}px`;
+        el.style.minHeight = '18px';
     } else {
         el.style.top = '0px';
-        el.style.height = 'auto';
+        el.style.minHeight = '24px';
+    }
+
+    // Цвет фона
+    const bgColor = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
+    el.style.backgroundColor = bgColor;
+
+    // Для urgent добавляем красную рамку
+    if (task.priority === 'urgent') {
+        el.style.border = '2px solid #D32F2F';
+        el.style.borderLeft = '3px solid #D32F2F';
     }
 
     el.innerHTML = `
-        <div class="event-time">${task.due_time || 'Весь день'}</div>
-        <div class="event-title">${escapeHtml(task.title)}</div>
+        <div class="event-time">${task.due_time ? formatTime(task.due_time) : 'Весь день'}</div>
+        <div class="event-title">${PRIORITY_ICONS[task.priority] || ''} ${escapeHtml(task.title)}</div>
     `;
+
+    // Всплывающая подсказка
+    el.title = [
+        task.title,
+        task.description || '',
+        task.due_date ? formatDateDisplay(new Date(task.due_date)) : '',
+        task.due_time || '',
+        PRIORITY_NAMES[task.priority] || task.priority
+    ].filter(Boolean).join('\n');
 
     // Клик для редактирования
     el.addEventListener('click', (e) => {
@@ -309,56 +413,86 @@ function createTaskElement(task) {
         openTaskModal(task);
     });
 
-    // Drag & drop для перемещения (упрощенно)
+    // Drag and drop
     el.draggable = true;
     el.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', task.id);
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+            taskId: task.id
+        }));
+        el.style.opacity = '0.5';
+    });
+
+    el.addEventListener('dragend', () => {
+        el.style.opacity = '1';
     });
 
     return el;
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 // ============================================
 // Модальное окно задачи
 // ============================================
+function populateTimeSelect(selectedTime = null) {
+    const select = document.getElementById('task-time-select');
+    select.innerHTML = '<option value="">Весь день</option>';
+
+    const timeSlots = generateTimeSlots();
+    timeSlots.forEach(slot => {
+        const option = document.createElement('option');
+        option.value = slot;
+        option.textContent = slot;
+        if (slot === selectedTime) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+}
+
 function openTaskModal(task = null, date = null, time = null) {
     const modal = document.getElementById('task-modal');
     const form = document.getElementById('task-form');
 
     form.reset();
+    populateTimeSelect();
 
     if (task) {
-        // Редактирование существующей задачи
+        // Редактирование
         document.getElementById('modal-title').textContent = 'Редактировать задачу';
         document.getElementById('task-id').value = task.id;
         document.getElementById('task-title-input').value = task.title;
         document.getElementById('task-desc-input').value = task.description || '';
         document.getElementById('task-date-input').value = task.due_date || '';
-        document.getElementById('task-time-input').value = task.due_time || '';
-        document.getElementById('task-priority').value = task.priority;
-        document.getElementById('task-color').value = task.color;
+        document.getElementById('task-priority').value = task.priority || 'normal';
+        document.getElementById('task-color').value = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
         document.getElementById('delete-task-btn').style.display = 'block';
+
+        if (task.due_time) {
+            populateTimeSelect(task.due_time);
+        }
+
         state.editingTaskId = task.id;
     } else {
-        // Новая задача
+        // Создание новой
         document.getElementById('modal-title').textContent = 'Новая задача';
         document.getElementById('task-id').value = '';
         document.getElementById('delete-task-btn').style.display = 'none';
         state.editingTaskId = null;
 
-        // Предзаполняем дату и время
+        // Предзаполняем дату
         if (date) {
             document.getElementById('task-date-input').value = formatDate(date);
+        } else {
+            document.getElementById('task-date-input').value = formatDate(state.selectedDate);
         }
+
+        // Предзаполняем время
         if (time) {
-            document.getElementById('task-time-input').value = time;
+            populateTimeSelect(time);
         }
+
+        // Цвет по умолчанию для обычного приоритета
+        document.getElementById('task-priority').value = 'normal';
+        document.getElementById('task-color').value = PRIORITY_COLORS['normal'];
     }
 
     modal.classList.add('active');
@@ -377,9 +511,9 @@ async function handleFormSubmit(e) {
         title: document.getElementById('task-title-input').value.trim(),
         description: document.getElementById('task-desc-input').value.trim() || null,
         due_date: document.getElementById('task-date-input').value || null,
-        due_time: document.getElementById('task-time-input').value || null,
+        due_time: document.getElementById('task-time-select').value || null,
         priority: document.getElementById('task-priority').value,
-        color: document.getElementById('task-color').value
+        color: document.getElementById('task-color').value,
     };
 
     if (!taskData.title) {
@@ -392,14 +526,17 @@ async function handleFormSubmit(e) {
 
         if (taskId) {
             await updateTask(taskId, taskData);
+            console.log('✅ Задача обновлена');
         } else {
             await createTask(taskData);
+            console.log('✅ Задача создана');
         }
 
         closeModal();
         await refreshTasks();
     } catch (error) {
-        alert('Ошибка сохранения задачи: ' + error.message);
+        alert('Ошибка сохранения: ' + error.message);
+        console.error('Ошибка:', error);
     }
 }
 
@@ -411,10 +548,11 @@ async function handleDeleteTask() {
 
     try {
         await deleteTask(taskId);
+        console.log('✅ Задача удалена');
         closeModal();
         await refreshTasks();
     } catch (error) {
-        alert('Ошибка удаления задачи: ' + error.message);
+        alert('Ошибка удаления: ' + error.message);
     }
 }
 
@@ -428,11 +566,14 @@ async function refreshTasks() {
 
     // Расширяем диапазон для мини-календаря
     const miniStart = new Date(state.miniCalendarDate.getFullYear(), state.miniCalendarDate.getMonth(), 1);
+    miniStart.setDate(miniStart.getDate() - 7);
     const miniEnd = new Date(state.miniCalendarDate.getFullYear(), state.miniCalendarDate.getMonth() + 1, 0);
+    miniEnd.setDate(miniEnd.getDate() + 7);
 
-    await fetchTasks(miniStart < startDate ? miniStart : startDate,
-                     miniEnd > endDate ? miniEnd : endDate);
+    const fetchStart = miniStart < startDate ? miniStart : startDate;
+    const fetchEnd = miniEnd > endDate ? miniEnd : endDate;
 
+    await fetchTasks(fetchStart, fetchEnd);
     renderMiniCalendar();
     renderCalendar();
 }
@@ -443,38 +584,48 @@ async function refreshTasks() {
 function initEventListeners() {
     // Кнопка "Сегодня"
     document.getElementById('today-btn').addEventListener('click', () => {
-        state.currentDate = new Date();
-        state.selectedDate = new Date();
-        state.miniCalendarDate = new Date();
+        const today = new Date();
+        state.currentDate = today;
+        state.selectedDate = today;
+        state.miniCalendarDate = today;
         refreshTasks();
     });
 
-    // Навигация
+    // Навигация по неделям
     document.getElementById('prev-week').addEventListener('click', () => {
         const monday = getMonday(state.currentDate);
         monday.setDate(monday.getDate() - 7);
-        state.currentDate = monday;
-        state.selectedDate = monday;
-        state.miniCalendarDate = monday;
+        state.currentDate = new Date(monday);
+        state.selectedDate = new Date(monday);
+        state.miniCalendarDate = new Date(monday);
         refreshTasks();
     });
 
     document.getElementById('next-week').addEventListener('click', () => {
         const monday = getMonday(state.currentDate);
         monday.setDate(monday.getDate() + 7);
-        state.currentDate = monday;
-        state.selectedDate = monday;
-        state.miniCalendarDate = monday;
+        state.currentDate = new Date(monday);
+        state.selectedDate = new Date(monday);
+        state.miniCalendarDate = new Date(monday);
         refreshTasks();
     });
 
+    // Навигация по месяцам
     document.getElementById('prev-month').addEventListener('click', () => {
-        state.miniCalendarDate.setMonth(state.miniCalendarDate.getMonth() - 1);
+        state.miniCalendarDate = new Date(
+            state.miniCalendarDate.getFullYear(),
+            state.miniCalendarDate.getMonth() - 1,
+            1
+        );
         refreshTasks();
     });
 
     document.getElementById('next-month').addEventListener('click', () => {
-        state.miniCalendarDate.setMonth(state.miniCalendarDate.getMonth() + 1);
+        state.miniCalendarDate = new Date(
+            state.miniCalendarDate.getFullYear(),
+            state.miniCalendarDate.getMonth() + 1,
+            1
+        );
         refreshTasks();
     });
 
@@ -484,6 +635,9 @@ function initEventListeners() {
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             state.currentView = btn.dataset.view;
+            if (state.currentView === 'day') {
+                state.currentDate = new Date(state.selectedDate);
+            }
             renderCalendar();
         });
     });
@@ -495,6 +649,7 @@ function initEventListeners() {
 
     // Модальное окно
     document.getElementById('close-modal').addEventListener('click', closeModal);
+    document.getElementById('cancel-btn').addEventListener('click', closeModal);
     document.getElementById('task-modal').addEventListener('click', (e) => {
         if (e.target === document.getElementById('task-modal')) {
             closeModal();
@@ -504,6 +659,17 @@ function initEventListeners() {
     // Форма
     document.getElementById('task-form').addEventListener('submit', handleFormSubmit);
     document.getElementById('delete-task-btn').addEventListener('click', handleDeleteTask);
+
+    // Автоматическая смена цвета при выборе приоритета
+    const prioritySelect = document.getElementById('task-priority');
+    const colorInput = document.getElementById('task-color');
+
+    prioritySelect.addEventListener('change', () => {
+        const priority = prioritySelect.value;
+        if (PRIORITY_COLORS[priority]) {
+            colorInput.value = PRIORITY_COLORS[priority];
+        }
+    });
 
     // Закрытие по Escape
     document.addEventListener('keydown', (e) => {
@@ -526,7 +692,7 @@ async function init() {
         console.log('✅ API доступен:', health);
     } catch (error) {
         console.error('❌ API недоступен:', error);
-        alert('Не удалось подключиться к серверу. Проверьте что backend запущен на порту 8000');
+        alert('Не удалось подключиться к серверу.\nПроверьте что backend запущен на порту 8000');
         return;
     }
 
