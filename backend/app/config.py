@@ -3,7 +3,7 @@ import os
 # SQLite для разработки
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "sqlite:///./todo.db"  # Файл базы данных будет создан рядом с приложением
+    "sqlite:///./data/todo.db"
 )
 
 DEFAULT_USER_ID = 1  # Временное решение для одного пользователя
