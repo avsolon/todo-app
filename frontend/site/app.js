@@ -4,6 +4,7 @@
 
 //const API_BASE = 'http://127.0.0.1:8000';
 const API_BASE = window.location.origin;
+const API_PATH = '/todo-api';
 
 // ============================================
 // Глобальное состояние
@@ -208,7 +209,7 @@ async function apiCall(url, options = {}) {
 }
 
 async function fetchTasks(startDate, endDate) {
-    const url = `${API_BASE}/api/tasks/calendar?start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`;
+    const url = `${API_BASE}${API_PATH}/tasks/calendar?start_date=${formatDate(startDate)}&end_date=${formatDate(endDate)}`;
     try {
         const data = await apiCall(url);
         state.tasks = data || {};
@@ -220,21 +221,21 @@ async function fetchTasks(startDate, endDate) {
 }
 
 async function createTask(taskData) {
-    return await apiCall(`${API_BASE}/api/tasks`, {
+    return await apiCall(`${API_BASE}${API_PATH}/tasks`, {
         method: 'POST',
         body: JSON.stringify(taskData)
     });
 }
 
 async function updateTask(taskId, taskData) {
-    return await apiCall(`${API_BASE}/api/tasks/${taskId}`, {
+    return await apiCall(`${API_BASE}${API_PATH}/tasks/${taskId}`, {
         method: 'PUT',
         body: JSON.stringify(taskData)
     });
 }
 
 async function deleteTask(taskId) {
-    return await apiCall(`${API_BASE}/api/tasks/${taskId}`, {
+    return await apiCall(`${API_BASE}${API_PATH}/tasks/${taskId}`, {
         method: 'DELETE'
     });
 }
