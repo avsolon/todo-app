@@ -2,9 +2,16 @@
 // Todo Calendar - JavaScript приложение
 // ============================================
 
-//const API_BASE = 'http://127.0.0.1:8000';
-const API_BASE = window.location.origin;
-const API_PATH = '/todo-api/api';
+const isLocalhost = window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1';
+
+const API_BASE = isLocalhost
+    ? 'http://127.0.0.1:8000'      // локально
+    : window.location.origin;       // сервер
+
+const API_PATH = isLocalhost
+    ? ''                            // Локально: http://127.0.0.1:8000/api/tasks
+    : '/todo-api/api';              // Сервер:   http://138.124.70.3/todo-api/api/tasks
 
 // ============================================
 // Глобальное состояние
