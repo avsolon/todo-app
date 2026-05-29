@@ -26,6 +26,18 @@ services:
     depends_on:
       - backend
 
+  bot:
+    build: ./bot
+    container_name: todo-bot
+    restart: unless-stopped
+    env_file:
+      - ./bot/.env
+
+    networks:
+      - todo-network
+    depends_on:
+      - backend
+
 networks:
   todo-network:
     driver: bridge
