@@ -6,12 +6,12 @@ const isLocalhost = window.location.hostname === 'localhost' ||
                     window.location.hostname === '127.0.0.1';
 
 const API_BASE = isLocalhost
-    ? 'http://127.0.0.1:8000'      // локально
-    : window.location.origin;       // сервер
+    ? 'http://127.0.0.1:8000'
+    : window.location.origin;
 
 const API_PATH = isLocalhost
-    ? ''                            // Локально: http://127.0.0.1:8000/api/tasks
-    : '/todo-api/api';              // Сервер:   http://138.124.70.3/todo-api/api/tasks
+    ? '/api'                        // ← Локально: http://127.0.0.1:8000/api/tasks
+    : '/todo-api/api';              // ← Сервер:   http://138.124.70.3/todo-api/api/tasks
 
 // ============================================
 // Глобальное состояние
@@ -183,6 +183,98 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ============================================
+// Drag & Drop
+// ============================================
+
+let draggedTaskId = null;
+let draggedFromDate = null;
+
+function initDragAndDrop() {
+    // Делегирование событий на days-container
+    const daysContainer = document.getElementById('days-container');
+
+    daysContainer.addEventListener('dragstart', (e) => {
+        const taskEl = e.target.closest('.task-event');
+        if (!taskEl) return;
+
+        draggedTaskId = taskEl.dataset.taskId;
+        draggedFromDate = taskEl.dataset.taskDate;
+        taskEl.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', taskEl.dataset.taskId);
+    });
+
+    daysContainer.addEventListener('dragend', (e) => {
+        const taskEl = e.target.closest('.task-event');
+        if (taskEl) taskEl.classList.remove('dragging');
+        draggedTaskId = null;
+        draggedFromDate = null;
+
+        // Убираем подсветку со всех ячеек
+        document.querySelectorAll('.drag-over, .drag-hover').forEach(el => {
+            el.classList.remove('drag-over', 'drag-hover');
+        });
+    });
+
+    daysContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const hourCell = e.target.closest('.hour-cell');
+        const dayColumn = e.target.closest('.day-column');
+
+        // Убираем старую подсветку
+        document.querySelectorAll('.hour-cell.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+
+        // Подсвечиваем текущую ячейку
+        if (hourCell) {
+            hourCell.classList.add('drag-over');
+        }
+    });
+
+    daysContainer.addEventListener('drop', async (e) => {
+        e.preventDefault();
+
+        const hourCell = e.target.closest('.hour-cell');
+        const dayColumn = e.target.closest('.day-column');
+        const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+
+        if (!taskId || !dayColumn) return;
+
+        // Определяем новую дату
+        const newDate = dayColumn.dataset.date;
+
+        // Определяем новое время
+        let newTime = null;
+        if (hourCell) {
+            newTime = hourCell.dataset.time;
+        }
+
+        // Обновляем задачу
+        try {
+            const updateData = {
+                due_date: newDate,
+                due_time: newTime
+            };
+
+            await updateTask(taskId, updateData);
+            console.log(`✅ Задача ${taskId} перемещена на ${newDate} ${newTime || ''}`);
+            await refreshTasks();
+        } catch (error) {
+            console.error('Ошибка перемещения:', error);
+            alert('Не удалось переместить задачу');
+        }
+
+        // Очищаем
+        document.querySelectorAll('.drag-over, .drag-hover').forEach(el => {
+            el.classList.remove('drag-over', 'drag-hover');
+        });
+    });
 }
 
 // ============================================
@@ -405,12 +497,15 @@ function renderWeekView() {
             dayColumn.classList.add('today');
         }
 
+        dayColumn.dataset.date = formatDate(date);
+
         // Добавляем ячейки для каждого временного слота
         timeSlots.forEach((slot) => {
             const [h, m] = slot.split(':');
             const hourCell = document.createElement('div');
             hourCell.className = 'hour-cell';
             hourCell.style.height = '15px'; // 15 минут = 15px
+            hourCell.dataset.time = slot;
 
             // Разделители для целых часов
             if (m === '00' && h !== '00') {
@@ -601,66 +696,55 @@ function createTaskCard(task) {
     return card;
 }
 
-function createTaskElement(task) {
+function createTaskElement(task, dateStr) {
     const el = document.createElement('div');
     el.className = 'task-event';
 
     if (task.completed) el.classList.add('completed');
     if (task.priority) el.classList.add(`priority-${task.priority}`);
+    if (task.is_recurring) el.classList.add('recurring');
 
-    // Позиционирование по времени
+    // Data-атрибуты для drag & drop
+    el.dataset.taskId = task.id;
+    el.dataset.taskDate = task.due_date;
+
+    // Позиционирование
     if (task.due_time) {
         const minutes = timeToMinutes(task.due_time);
-        const topPx = minutes * 1; // 1 минута = 1px (15 минут = 15px)
-        el.style.top = `${topPx}px`;
+        el.style.top = `${minutes}px`;
         el.style.minHeight = '18px';
     } else {
         el.style.top = '0px';
         el.style.minHeight = '24px';
     }
 
-    // Цвет фона
-    const bgColor = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
-    el.style.backgroundColor = bgColor;
+    el.style.backgroundColor = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
 
-    // Для urgent добавляем красную рамку
     if (task.priority === 'urgent') {
         el.style.border = '2px solid #D32F2F';
         el.style.borderLeft = '3px solid #D32F2F';
     }
 
     el.innerHTML = `
-        <div class="event-time">${task.due_time ? formatTime(task.due_time) : 'Весь день'}</div>
+        <div class="event-time">${task.due_time || 'Весь день'} ${task.is_recurring ? '🔄' : ''}</div>
         <div class="event-title">${PRIORITY_ICONS[task.priority] || ''} ${escapeHtml(task.title)}</div>
     `;
 
-    // Всплывающая подсказка
     el.title = [
         task.title,
         task.description || '',
         task.due_date ? formatDateDisplay(new Date(task.due_date)) : '',
         task.due_time || '',
-        PRIORITY_NAMES[task.priority] || task.priority
+        PRIORITY_NAMES[task.priority] || task.priority,
+        task.is_recurring ? '🔄 Повторяется' : ''
     ].filter(Boolean).join('\n');
 
-    // Клик для редактирования
     el.addEventListener('click', (e) => {
         e.stopPropagation();
         openTaskModal(task);
     });
 
-    // Drag and drop
     el.draggable = true;
-    el.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify({
-            taskId: task.id
-        }));
-        el.style.opacity = '0.5';
-    });
-
-    el.addEventListener('dragend', () => {
-        el.style.opacity = '1';
-    });
 
     return el;
 }
@@ -691,8 +775,11 @@ function openTaskModal(task = null, date = null, time = null) {
     form.reset();
     populateTimeSelect();
 
+    // Скрываем настройки повторения
+    document.getElementById('recurrence-settings').style.display = 'none';
+    document.getElementById('task-recurring').checked = false;
+
     if (task) {
-        // Редактирование
         document.getElementById('modal-title').textContent = 'Редактировать задачу';
         document.getElementById('task-id').value = task.id;
         document.getElementById('task-title-input').value = task.title;
@@ -702,31 +789,28 @@ function openTaskModal(task = null, date = null, time = null) {
         document.getElementById('task-color').value = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
         document.getElementById('delete-task-btn').style.display = 'block';
 
-        if (task.due_time) {
-            populateTimeSelect(task.due_time);
+        if (task.due_time) populateTimeSelect(task.due_time);
+
+        // Если задача повторяющаяся
+        if (task.is_recurring) {
+            document.getElementById('task-recurring').checked = true;
+            document.getElementById('recurrence-settings').style.display = 'block';
+            document.getElementById('task-recurrence-type').value = task.recurrence_type || 'daily';
+            document.getElementById('task-recurrence-interval').value = task.recurrence_interval || 1;
+            document.getElementById('task-recurrence-end-date').value = task.recurrence_end_date || '';
+            document.getElementById('task-recurrence-count').value = task.recurrence_count || '';
         }
 
         state.editingTaskId = task.id;
     } else {
-        // Создание новой
         document.getElementById('modal-title').textContent = 'Новая задача';
         document.getElementById('task-id').value = '';
         document.getElementById('delete-task-btn').style.display = 'none';
         state.editingTaskId = null;
 
-        // Предзаполняем дату
-        if (date) {
-            document.getElementById('task-date-input').value = formatDate(date);
-        } else {
-            document.getElementById('task-date-input').value = formatDate(state.selectedDate);
-        }
+        document.getElementById('task-date-input').value = date ? formatDate(date) : formatDate(state.selectedDate);
+        if (time) populateTimeSelect(time);
 
-        // Предзаполняем время
-        if (time) {
-            populateTimeSelect(time);
-        }
-
-        // Цвет по умолчанию для обычного приоритета
         document.getElementById('task-priority').value = 'normal';
         document.getElementById('task-color').value = PRIORITY_COLORS['normal'];
     }
@@ -743,27 +827,19 @@ function closeModal() {
 async function handleFormSubmit(e) {
     e.preventDefault();
 
-    // Получаем и очищаем данные
     const rawTitle = document.getElementById('task-title-input').value;
     const rawDesc = document.getElementById('task-desc-input').value;
 
-    // Валидация заголовка
     const titleValidation = validateTitle(rawTitle);
     if (!titleValidation.valid) {
         alert(titleValidation.error);
         return;
     }
 
-    // Валидация описания
-    const descValidation = validateDescription(rawDesc);
-    if (!descValidation.valid) {
-        alert(descValidation.error);
-        return;
-    }
-
-    // Очищаем данные
     const cleanTitle = sanitizeInput(rawTitle);
     const cleanDesc = rawDesc ? sanitizeInput(rawDesc) : null;
+
+    const isRecurring = document.getElementById('task-recurring').checked;
 
     const taskData = {
         title: cleanTitle,
@@ -774,9 +850,17 @@ async function handleFormSubmit(e) {
         color: document.getElementById('task-color').value,
     };
 
-    // Проверяем что после очистки заголовок не стал пустым
+    // Добавляем повторение если включено
+    if (isRecurring) {
+        taskData.is_recurring = true;
+        taskData.recurrence_type = document.getElementById('task-recurrence-type').value;
+        taskData.recurrence_interval = parseInt(document.getElementById('task-recurrence-interval').value) || 1;
+        taskData.recurrence_end_date = document.getElementById('task-recurrence-end-date').value || null;
+        taskData.recurrence_count = parseInt(document.getElementById('task-recurrence-count').value) || null;
+    }
+
     if (!taskData.title) {
-        alert('Название задачи не может быть пустым после очистки');
+        alert('Название задачи не может быть пустым');
         return;
     }
 
@@ -945,6 +1029,14 @@ function initEventListeners() {
         }
     });
 
+    // Показ/скрытие настроек повторения
+    const recurringCheckbox = document.getElementById('task-recurring');
+    const recurrenceSettings = document.getElementById('recurrence-settings');
+
+    recurringCheckbox.addEventListener('change', () => {
+        recurrenceSettings.style.display = recurringCheckbox.checked ? 'block' : 'none';
+    });
+
     // Закрытие по Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeModal();
@@ -969,6 +1061,8 @@ async function init() {
         alert('Не удалось подключиться к серверу.\nПроверьте что backend запущен на порту 8000');
         return;
     }
+
+    initDragAndDrop();
 
     await refreshTasks();
     console.log('✅ Приложение готово!');

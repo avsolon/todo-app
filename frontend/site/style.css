@@ -884,6 +884,72 @@ body {
     margin-bottom: 24px;
 }
 
+/* ===== Настройки повторения ===== */
+#recurrence-settings {
+    background: var(--bg-secondary);
+    padding: 12px;
+    border-radius: var(--radius);
+    margin-top: 4px;
+}
+
+#recurrence-settings .form-row {
+    margin-top: 8px;
+}
+
+#recurrence-settings input[type="number"] {
+    width: 100%;
+}
+
+/* ===== Drag & Drop ===== */
+.task-event {
+    cursor: grab;
+    transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.task-event:active {
+    cursor: grabbing;
+}
+
+.task-event.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg) scale(0.95);
+    box-shadow: none;
+}
+
+.task-event.drag-over {
+    border: 2px dashed var(--primary) !important;
+    background: rgba(66, 133, 244, 0.05) !important;
+}
+
+/* Подсветка зоны для сброса */
+.day-column.drag-hover {
+    background: rgba(66, 133, 244, 0.08) !important;
+}
+
+.hour-cell.drag-over {
+    background: rgba(66, 133, 244, 0.15) !important;
+    outline: 2px dashed var(--primary);
+    outline-offset: -2px;
+    z-index: 15;
+}
+
+/* Индикатор повторяющейся задачи */
+.task-event.recurring::after {
+    content: '🔄';
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 10px;
+    opacity: 0.7;
+}
+
+/* Карточка повторяющейся задачи в списке */
+.task-card.recurring .task-card-title::after {
+    content: ' 🔄';
+    font-size: 12px;
+    opacity: 0.6;
+}
+
 /* ===== Адаптивность ===== */
 @media (max-width: 768px) {
     .sidebar {

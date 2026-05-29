@@ -151,6 +151,44 @@
                         </div>
                     </div>
 
+                    <!-- Повторение задачи -->
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="task-recurring"> Повторяющаяся задача
+                        </label>
+                    </div>
+
+                    <div id="recurrence-settings" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Тип повторения</label>
+                                <select id="task-recurrence-type">
+                                    <option value="daily">Ежедневно</option>
+                                    <option value="weekly">Еженедельно</option>
+                                    <option value="monthly">Ежемесячно</option>
+                                    <option value="yearly">Ежегодно</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Интервал</label>
+                                <input type="number" id="task-recurrence-interval"
+                                       value="1" min="1" max="365">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Окончание повторений (дата)</label>
+                                <input type="date" id="task-recurrence-end-date">
+                            </div>
+                            <div class="form-group">
+                                <label>Или количество повторений</label>
+                                <input type="number" id="task-recurrence-count"
+                                       min="1" max="365" placeholder="Сколько раз">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="button" class="btn-danger" id="delete-task-btn">
                             🗑 Удалить

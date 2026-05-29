@@ -1,15 +1,51 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import date, datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from . import models, schemas
 
-# Словарь цветов по приоритетам (используется если цвет не указан явно)
 PRIORITY_COLORS = {
-    'low': '#FFF9C4',  # Светло-жёлтый
-    'normal': '#BBDEFB',  # Голубой
-    'high': '#E1BEE7',  # Сиреневый
-    'urgent': '#FFCDD2',  # Красный (светло-красный)
+    'low': '#FFF9C4',
+    'normal': '#BBDEFB',
+    'high': '#E1BEE7',
+    'urgent': '#FFCDD2',
 }
+
+
+def generate_recurring_dates(start_date, rec_type, interval, end_date=None, count=None):
+    """
+    Генерирует даты повторяющихся задач.
+    Возвращает список дат.
+    """
+    dates = []
+    current = start_date
+    occurrences = 0
+
+    while True:
+        if end_date and current > end_date:
+            break
+        if count and occurrences >= count:
+            break
+
+        dates.append(current)
+        occurrences += 1
+
+        if rec_type == 'daily':
+            current = current + timedelta(days=interval)
+        elif rec_type == 'weekly':
+            current = current + timedelta(weeks=interval)
+        elif rec_type == 'monthly':
+            current = current + relativedelta(months=interval)
+        elif rec_type == 'yearly':
+            current = current + relativedelta(years=interval)
+        else:
+            break
+
+        # Защита от бесконечного цикла
+        if occurrences > 365:
+            break
+
+    return dates
 
 
 def get_tasks(
@@ -21,10 +57,11 @@ def get_tasks(
         start_date: date = None,
         end_date: date = None
 ):
-    """
-    Получить список задач с возможностью фильтрации по датам.
-    """
+    """Получить список задач с фильтрацией."""
     query = db.query(models.Task).filter(models.Task.user_id == user_id)
+
+    # Исключаем дочерние задачи (они создаются автоматически)
+    query = query.filter(models.Task.parent_task_id == None)
 
     if due_date:
         query = query.filter(models.Task.due_date == due_date)
@@ -36,11 +73,8 @@ def get_tasks(
             )
         )
 
-    # Сортировка: сначала по времени (nulls first — задачи без времени сверху),
-    # затем по приоритету (urgent > high > normal > low)
     return query.order_by(
         models.Task.due_time.asc().nullsfirst(),
-        # Кастомная сортировка приоритетов через CASE
         models.Task.priority.desc(),
         models.Task.created_at.desc()
     ).offset(skip).limit(limit).all()
@@ -54,7 +88,7 @@ def get_tasks_grouped_by_date(
 ):
     """
     Получить задачи, сгруппированные по датам.
-    Возвращает словарь: {дата: [задачи]}
+    Для повторяющихся задач создаются виртуальные экземпляры.
     """
     tasks = db.query(models.Task).filter(
         and_(
@@ -67,14 +101,53 @@ def get_tasks_grouped_by_date(
         models.Task.priority.desc()
     ).all()
 
-    # Группируем по датам
     grouped = {}
+
     for task in tasks:
-        if task.due_date:
-            key = task.due_date.isoformat()
-            if key not in grouped:
-                grouped[key] = []
-            grouped[key].append(task)
+        if task.parent_task_id:
+            continue  # Пропускаем дочерние
+
+        if task.is_recurring and task.due_date and task.recurrence_type:
+            # Генерируем все даты повторения в диапазоне
+            recurring_dates = generate_recurring_dates(
+                task.due_date,
+                task.recurrence_type,
+                task.recurrence_interval,
+                task.recurrence_end_date,
+                task.recurrence_count
+            )
+
+            for rec_date in recurring_dates:
+                if start_date <= rec_date <= end_date:
+                    key = rec_date.isoformat()
+                    if key not in grouped:
+                        grouped[key] = []
+
+                    # Создаём виртуальную копию задачи для этой даты
+                    virtual_task = models.Task(
+                        id=task.id,
+                        user_id=task.user_id,
+                        title=task.title,
+                        description=task.description,
+                        completed=task.completed,
+                        due_date=rec_date,
+                        due_time=task.due_time,
+                        priority=task.priority,
+                        color=task.color,
+                        is_recurring=True,
+                        recurrence_type=task.recurrence_type,
+                        recurrence_interval=task.recurrence_interval,
+                        parent_task_id=None,
+                        created_at=task.created_at,
+                    )
+                    grouped[key].append(virtual_task)
+        else:
+            # Обычная задача
+            if task.due_date:
+                key = task.due_date.isoformat()
+                if key not in grouped:
+                    grouped[key] = []
+                grouped[key].append(task)
 
     return grouped
 
@@ -83,11 +156,9 @@ def create_task(db: Session, task: schemas.TaskCreate, user_id: int):
     """Создать новую задачу."""
     task_data = task.model_dump()
 
-    # Если цвет не указан — берём из приоритета
     if not task_data.get('color'):
         task_data['color'] = PRIORITY_COLORS.get(
-            task_data.get('priority', 'normal'),
-            '#BBDEFB'
+            task_data.get('priority', 'normal'), '#BBDEFB'
         )
 
     db_task = models.Task(**task_data, user_id=user_id)
@@ -98,7 +169,7 @@ def create_task(db: Session, task: schemas.TaskCreate, user_id: int):
 
 
 def update_task(db: Session, task_id: int, user_id: int, task_update: schemas.TaskUpdate):
-    """Обновить задачу."""
+    """Обновить задачу (для Drag & Drop меняем дату/время)."""
     db_task = db.query(models.Task).filter(
         models.Task.id == task_id,
         models.Task.user_id == user_id
@@ -109,11 +180,9 @@ def update_task(db: Session, task_id: int, user_id: int, task_update: schemas.Ta
 
     update_data = task_update.model_dump(exclude_unset=True)
 
-    # Если обновляется приоритет, но не указан цвет — обновляем цвет автоматически
     if 'priority' in update_data and 'color' not in update_data:
         update_data['color'] = PRIORITY_COLORS.get(
-            update_data['priority'],
-            '#BBDEFB'
+            update_data['priority'], '#BBDEFB'
         )
 
     for field, value in update_data.items():
