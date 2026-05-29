@@ -63,6 +63,7 @@ app.include_router(tasks.router)
 
 @app.get("/")
 @app.get("/health")
+@app.get("/api/health")
 def health():
     """Проверка работоспособности."""
     return {

@@ -4,7 +4,7 @@
 
 //const API_BASE = 'http://127.0.0.1:8000';
 const API_BASE = window.location.origin;
-const API_PATH = '/todo-api';
+const API_PATH = '/todo-api/api';
 
 // ============================================
 // Глобальное состояние
