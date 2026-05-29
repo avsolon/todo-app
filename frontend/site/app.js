@@ -955,7 +955,7 @@ async function init() {
 
     // Проверяем соединение с API
     try {
-        const health = await apiCall(`${API_BASE}/health`);
+        const health = await apiCall(`${API_BASE}${API_PATH}/health`);
         console.log('✅ API доступен:', health);
     } catch (error) {
         console.error('❌ API недоступен:', error);
