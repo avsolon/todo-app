@@ -41,8 +41,7 @@ main_keyboard = ReplyKeyboardMarkup(
         ["📋 Неделя", "➕ Добавить задачу"],
         ["❓ Помощь"],
     ],
-    resize_keyboard=True,
-    persistent=True,
+    resize_keyboard=True
 )
 
 # ============================================
