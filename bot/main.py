@@ -162,6 +162,7 @@ def build_calendar(year: int, month: int) -> InlineKeyboardMarkup:
     # Кнопки навигации
     nav_row = [
         InlineKeyboardButton("⬅️", callback_data=f"prev_month_{year}_{month}"),
+        InlineKeyboardButton("❌ Отмена", callback_data="cancel_add"),
         InlineKeyboardButton("➡️", callback_data=f"next_month_{year}_{month}"),
     ]
 
@@ -265,6 +266,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
+
+    # Игнорируем кнопку отмены — она обрабатывается в ConversationHandler
+    if data == "cancel_add":
+        return
+
     if data.startswith("toggle_"):
         task_id = int(data.split("_")[1])
         if api_toggle_task(task_id):
@@ -304,9 +310,9 @@ async def choose_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSE_DATE
 
     # Навигация по месяцам
-    if data.startswith("prev_month"):
-        _, year, month = data.split("_")
-        year, month = int(year), int(month)
+    if data.startswith("prev_month_"):
+        parts = data.split("_")
+        year, month = int(parts[2]), int(parts[3])
         month -= 1
         if month < 1:
             month = 12
@@ -317,9 +323,9 @@ async def choose_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("📅 Выберите дату задачи:", reply_markup=markup)
         return CHOOSE_DATE
 
-    if data.startswith("next_month"):
-        _, year, month = data.split("_")
-        year, month = int(year), int(month)
+    if data.startswith("next_month_"):
+        parts = data.split("_")
+        year, month = int(parts[2]), int(parts[3])
         month += 1
         if month > 12:
             month = 1
@@ -340,8 +346,12 @@ async def choose_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return CHOOSE_DATE
 
         context.user_data["add_date"] = selected_date.isoformat()
+        cancel_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("❌ Отмена", callback_data="cancel_add")]
+        ])
         await query.edit_message_text(
-            f"📅 Выбрана дата: {format_date(selected_date)}\nТеперь выберите время:"
+            f"📅 Выбрана дата: {format_date(selected_date)}\nТеперь выберите время:",
+            reply_markup=cancel_keyboard
         )
         # Показываем кнопки времени (15-минутные слоты)
         time_keyboard = build_time_keyboard()
@@ -361,6 +371,8 @@ def build_time_keyboard():
         buttons.append(row)
     # Добавляем опцию "Весь день"
     buttons.append([InlineKeyboardButton("Весь день", callback_data="time_allday")])
+    # Кнопка отмены создания задачи
+    buttons.append([InlineKeyboardButton("❌ Отмена", callback_data="cancel_add")])
     return InlineKeyboardMarkup(buttons)
 
 
@@ -370,15 +382,41 @@ async def choose_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
 
+    if data == "cancel_add":
+        await query.answer("❌ Добавление отменено")
+        for key in ("add_date", "add_time", "add_title", "add_year", "add_month"):
+            context.user_data.pop(key, None)
+        await query.edit_message_text("❌ Добавление отменено", reply_markup=None)
+        return ConversationHandler.END
+
     if data == "time_allday":
         context.user_data["add_time"] = None
-        await query.edit_message_text("🕐 Выбрано: Весь день")
+        cancel_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("❌ Отмена", callback_data="cancel_add")]
+        ])
+        await query.edit_message_text(
+            "🕐 Выбрано: Весь день",
+            reply_markup=cancel_keyboard
+        )
     elif data.startswith("time_"):
         time_str = data[5:]
         context.user_data["add_time"] = time_str
-        await query.edit_message_text(f"🕐 Выбрано время: {time_str}")
+        cancel_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("❌ Отмена", callback_data="cancel_add")]
+        ])
+        await query.edit_message_text(
+            f"🕐 Выбрано время: {time_str}",
+            reply_markup=cancel_keyboard
+        )
 
-    await query.message.reply_text("📝 Введите название задачи:")
+    # Клавиатура с кнопкой отмены
+    cancel_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Отмена", callback_data="cancel_add")]
+    ])
+    await query.message.reply_text(
+        "📝 Введите название задачи:",
+        reply_markup=cancel_keyboard
+    )
     return ENTER_TITLE
 
 
@@ -389,8 +427,13 @@ async def enter_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Название не может быть пустым. Введите ещё раз:")
         return ENTER_TITLE
     context.user_data["add_title"] = title
+    # Клавиатура с кнопкой отмены
+    cancel_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ Отмена", callback_data="cancel_add")]
+    ])
     await update.message.reply_text(
-        "📝 Введите описание (или отправьте /skip чтобы пропустить):"
+        "📝 Введите описание (или отправьте /skip чтобы пропустить):",
+        reply_markup=cancel_keyboard
     )
     return ENTER_DESCRIPTION
 
@@ -438,6 +481,20 @@ async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
+async def cancel_add_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отмена добавления по нажатию inline-кнопки ❌ Отмена."""
+    query = update.callback_query
+    await query.answer("❌ Добавление отменено")
+    for key in ("add_date", "add_time", "add_title", "add_year", "add_month"):
+        context.user_data.pop(key, None)
+    try:
+        await query.edit_message_text("❌ Добавление отменено", reply_markup=None)
+    except Exception:
+        # Сообщение может быть уже unavailable — не критично
+        pass
+    return ConversationHandler.END
+
+
 # ============================================
 # Обработчик текстовых кнопок главного меню
 # ============================================
@@ -473,14 +530,27 @@ def main():
             MessageHandler(filters.Regex("^➕ Добавить задачу$"), add_start),
         ],
         states={
-            CHOOSE_DATE: [CallbackQueryHandler(choose_date)],
-            CHOOSE_TIME: [CallbackQueryHandler(choose_time)],
-            ENTER_TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_title)],
+            CHOOSE_DATE: [
+                CallbackQueryHandler(choose_date, pattern=r"^(ignore|prev_month_|next_month_|day_)"),
+                CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
+            ],
+            CHOOSE_TIME: [
+                CallbackQueryHandler(choose_time, pattern=r"^(time_|time_allday|cancel_add)$"),
+                CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
+            ],
+            ENTER_TITLE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_title),
+                CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
+            ],
             ENTER_DESCRIPTION: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_description)
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_description),
+                CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel_add)],
+        fallbacks=[
+            CommandHandler("cancel", cancel_add),
+            CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
+        ],
     )
 
     # Старые команды

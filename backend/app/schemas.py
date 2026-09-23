@@ -53,7 +53,7 @@ class TaskCreate(BaseModel):
 
     @validator('priority')
     def validate_priority(cls, v):
-        allowed = ['low', 'normal', 'high', 'urgent']
+        allowed = ['low', 'normal', 'high', 'urgent', 'meeting']
         if v not in allowed:
             raise ValueError(f'Приоритет должен быть одним из: {", ".join(allowed)}')
         return v
@@ -125,7 +125,7 @@ class TaskUpdate(BaseModel):
     def validate_priority(cls, v):
         if v is None:
             return v
-        allowed = ['low', 'normal', 'high', 'urgent']
+        allowed = ['low', 'normal', 'high', 'urgent', 'meeting']
         if v not in allowed:
             raise ValueError(f'Приоритет должен быть одним из: {", ".join(allowed)}')
         return v

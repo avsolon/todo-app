@@ -33,6 +33,7 @@ const PRIORITY_COLORS = {
     'normal': '#BBDEFB',
     'high': '#E1BEE7',
     'urgent': '#FFCDD2',
+    'meeting': '#C8E6C9',
 };
 
 const PRIORITY_NAMES = {
@@ -40,6 +41,7 @@ const PRIORITY_NAMES = {
     'normal': 'Обычный',
     'high': 'Высокий',
     'urgent': 'Супер важно!',
+    'meeting': 'Встреча/конференция',
 };
 
 const PRIORITY_ICONS = {
@@ -47,6 +49,7 @@ const PRIORITY_ICONS = {
     'normal': '🔵',
     'high': '🟣',
     'urgent': '🔴',
+    'meeting': '🟢',
 };
 
 // ============================================
@@ -601,7 +604,7 @@ function renderDayListView() {
         }
 
         // Сортировка по приоритету
-        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+        const priorityOrder = { urgent: 0, high: 1, meeting: 2, normal: 2, low: 3 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
     });
 

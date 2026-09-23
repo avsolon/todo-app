@@ -9,6 +9,7 @@ PRIORITY_COLORS = {
     'normal': '#BBDEFB',
     'high': '#E1BEE7',
     'urgent': '#FFCDD2',
+    'meeting': '#C8E6C9',
 }
 
 

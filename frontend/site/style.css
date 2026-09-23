@@ -29,6 +29,7 @@
     --priority-normal: #BBDEFB;
     --priority-high: #E1BEE7;
     --priority-urgent: #FFCDD2;
+    --priority-meeting: #C8E6C9;
 }
 
 body {
