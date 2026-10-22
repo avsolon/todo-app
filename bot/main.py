@@ -535,7 +535,7 @@ def main():
                 CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
             ],
             CHOOSE_TIME: [
-                CallbackQueryHandler(choose_time, pattern=r"^(time_|time_allday|cancel_add)$"),
+                CallbackQueryHandler(choose_time, pattern=r"^(time_\d{2}:\d{2}|time_allday|cancel_add)$"),
                 CallbackQueryHandler(cancel_add_callback, pattern=r"^cancel_add$"),
             ],
             ENTER_TITLE: [

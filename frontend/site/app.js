@@ -22,7 +22,8 @@ const state = {
     selectedDate: new Date(),
     miniCalendarDate: new Date(),
     tasks: {},
-    editingTaskId: null
+    editingTaskId: null,
+    modalMode: 'edit'
 };
 
 // ============================================
@@ -651,6 +652,7 @@ function createTaskCard(task) {
 
         <!-- Кнопки действий -->
         <div class="task-card-actions">
+            ${task.completed ? '' : '<button class="task-card-btn done" title="Выполнено">✓</button>'}
             <button class="task-card-btn edit" title="Редактировать">✎</button>
             <button class="task-card-btn delete" title="Удалить">✕</button>
         </div>
@@ -683,6 +685,20 @@ function createTaskCard(task) {
         e.stopPropagation();
         openTaskModal(task);
     });
+
+    // Кнопка «Выполнено»
+    const doneBtn = card.querySelector('.task-card-btn.done');
+    if (doneBtn) {
+        doneBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                await updateTask(task.id, { completed: true });
+                await refreshTasks();
+            } catch (error) {
+                alert('Ошибка обновления');
+            }
+        });
+    }
 
     // Кнопка удаления
     card.querySelector('.task-card-btn.delete').addEventListener('click', async (e) => {
@@ -771,6 +787,22 @@ function populateTimeSelect(selectedTime = null) {
     });
 }
 
+function setModalMode(mode) {
+    state.modalMode = mode;
+    const isView = mode === 'view';
+
+    // Блокируем поля формы в режиме просмотра
+    document.querySelectorAll('#task-form input, #task-form textarea, #task-form select').forEach((el) => {
+        if (el.id === 'task-id') return;
+        el.disabled = isView;
+    });
+
+    document.getElementById('edit-task-btn').style.display = isView ? 'block' : 'none';
+    document.getElementById('delete-task-btn').style.display = (isView || !state.editingTaskId) ? 'none' : 'block';
+    document.getElementById('cancel-btn').style.display = isView ? 'none' : 'block';
+    document.getElementById('save-task-btn').style.display = isView ? 'none' : 'block';
+}
+
 function openTaskModal(task = null, date = null, time = null) {
     const modal = document.getElementById('task-modal');
     const form = document.getElementById('task-form');
@@ -783,14 +815,14 @@ function openTaskModal(task = null, date = null, time = null) {
     document.getElementById('task-recurring').checked = false;
 
     if (task) {
-        document.getElementById('modal-title').textContent = 'Редактировать задачу';
+        document.getElementById('modal-title').textContent = 'Просмотр задачи';
         document.getElementById('task-id').value = task.id;
         document.getElementById('task-title-input').value = task.title;
         document.getElementById('task-desc-input').value = task.description || '';
         document.getElementById('task-date-input').value = task.due_date || '';
         document.getElementById('task-priority').value = task.priority || 'normal';
         document.getElementById('task-color').value = task.color || PRIORITY_COLORS[task.priority] || '#BBDEFB';
-        document.getElementById('delete-task-btn').style.display = 'block';
+        document.getElementById('delete-task-btn').style.display = 'none';
 
         if (task.due_time) populateTimeSelect(task.due_time);
 
@@ -805,6 +837,7 @@ function openTaskModal(task = null, date = null, time = null) {
         }
 
         state.editingTaskId = task.id;
+        setModalMode('view');
     } else {
         document.getElementById('modal-title').textContent = 'Новая задача';
         document.getElementById('task-id').value = '';
@@ -816,10 +849,14 @@ function openTaskModal(task = null, date = null, time = null) {
 
         document.getElementById('task-priority').value = 'normal';
         document.getElementById('task-color').value = PRIORITY_COLORS['normal'];
+
+        setModalMode('edit');
     }
 
     modal.classList.add('active');
-    document.getElementById('task-title-input').focus();
+    if (state.modalMode === 'edit') {
+        document.getElementById('task-title-input').focus();
+    }
 }
 
 function closeModal() {
@@ -1010,7 +1047,15 @@ function initEventListeners() {
 
     // Модальное окно
     document.getElementById('close-modal').addEventListener('click', closeModal);
-    document.getElementById('cancel-btn').addEventListener('click', closeModal);
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+        // В режиме редактирования «Отмена» возвращает в режим просмотра
+        if (state.editingTaskId && state.modalMode === 'edit') {
+            setModalMode('view');
+        } else {
+            closeModal();
+        }
+    });
+    document.getElementById('edit-task-btn').addEventListener('click', () => setModalMode('edit'));
     document.getElementById('task-modal').addEventListener('click', (e) => {
         if (e.target === document.getElementById('task-modal')) {
             closeModal();

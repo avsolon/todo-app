@@ -763,6 +763,7 @@ body {
 .task-card-priority.normal { background: #4285f4; }
 .task-card-priority.high { background: #9C27B0; }
 .task-card-priority.urgent { background: #D32F2F; }
+.task-card-priority.meeting { background: #2E7D32; }
 
 /* Контент */
 .task-card-content {
@@ -830,6 +831,11 @@ body {
     color: #C62828;
 }
 
+.task-card-priority-badge.meeting {
+    background: #C8E6C9;
+    color: #1B5E20;
+}
+
 /* Кнопки действий */
 .task-card-actions {
     display: flex;
@@ -860,6 +866,11 @@ body {
 .task-card-btn.delete:hover {
     background: rgba(234, 67, 53, 0.1);
     color: var(--danger);
+}
+
+.task-card-btn.done:hover {
+    background: rgba(52, 168, 83, 0.1);
+    color: #34a853;
 }
 
 /* Пустой список */
